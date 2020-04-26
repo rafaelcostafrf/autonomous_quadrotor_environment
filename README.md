@@ -5,8 +5,11 @@ Quadrotor mathematical model from master's thesis "Modelagem Dinâmica E Control
 
 Quadrotor dynamics incorporates:
 	1. Full inertia matrix (if needed).
+	
 	2. All calculations with quaternion angular position and velocities (no gymbal lock, even with euler flag on)
+	
 	2. Drag forces, based on linear and angular velocity
+	
 	3. Gyroscopic momentum based on prop speed.
 
 ## How to Use
