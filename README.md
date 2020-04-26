@@ -92,7 +92,16 @@ env.step(action):
 				[x, dx, y, dy, z, dz, q_0, q_1, q_2, q_3, w_xx, w_yy, w_zz]
 			and a done statement
 			
-			
+useful variables:
+	env.ang = preset Euler angles
+	env.state = present state in quaternions
+	env.i = environment iteration step
+	env.done = done flag
+	env.solved = solved flag (useful in deep learning environments)
+	env.reward = present reward
+	env.clipped_action = if indirect control, clipped action returns the true action based on given action on step
+	
+	
 all other functions are used internally and shouldn't be used outside of the environment.
 
 ## plotter
