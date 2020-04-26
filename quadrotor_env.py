@@ -107,7 +107,7 @@ class quad():
         self.hist_size = self.state_size+1+self.action_size     #Deep Learning step dimension
         self.deep_learning_in_size = self.hist_size*self.T      #Deep Learning whole dimension (T steps)
         
-        self.action_hist = deque(maxlen=self.T)                 #Action history initialization, to use with average action penality         
+        self.action_hist = deque(maxlen=self.T)                 #Action history initialization, to use with average action penalty         
 
         self.done = True                                        #Env done Flag
     
@@ -118,7 +118,7 @@ class quad():
         self.direct_control_flag = direct_control
         
         self.inv_j = np.linalg.inv(J)
-        self.zero_control = np.ones(4)*(2/T2WR - 1)             #Neutral Action (used in reset and absolute action penality) 
+        self.zero_control = np.ones(4)*(2/T2WR - 1)             #Neutral Action (used in reset and absolute action penalty) 
         
     def seed(self, seed):
         
@@ -444,10 +444,10 @@ class quad():
         if self.prev_shaping is not None:
             self.reward = shaping - self.prev_shaping
        
-        #ABSOLUTE CONTROL PENALITY
+        #ABSOLUTE CONTROL PENALTY
                    
         abs_control = -np.sum(np.square(action - self.zero_control)) * P_C
-        #AVERAGE CONTROL PENALITY        
+        #AVERAGE CONTROL PENALTY        
         avg_control = -np.sum(np.square(action - np.mean(action_hist,0))) * P_C_D
         
         ## TOTAL REWARD SHAPING ##
