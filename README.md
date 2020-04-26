@@ -1,7 +1,7 @@
 ## Quadrotor Environment
 # Quadrotor environment using python, with animation possibilities.
 
-Quadrotor mathematical model is based in MODELAGEM DINÂMICA E CONTROLE DE UM VEÍCULO AÉREO NÃO TRIPULADO DO TIPO QUADRIRROTOR by ALLAN CARLOS FERREIRA DE OLIVEIRA, BRASIL, SP-SANTO ANDRÉ, UFABC - 2019
+Quadrotor mathematical model from master's thesis "Modelagem Dinâmica E Controle De Um Veículo aéreo Não Tripulado Do Tipo Quadrirrotor" by Allan Carlos Ferreira De Oliveira, Brasil, São Paulo, Santo André, UFABC - 2019
 
 Quadrotor dynamics incorporates:
 	Full inertia matrix
