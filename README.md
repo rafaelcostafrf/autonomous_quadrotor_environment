@@ -93,6 +93,7 @@ env.step(action):
 			and a done statement
 			
 useful variables:
+
 	env.ang = preset Euler angles
 	env.state = present state in quaternions
 	env.i = environment iteration step
