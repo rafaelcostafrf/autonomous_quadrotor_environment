@@ -32,17 +32,19 @@ Declare the environment:
 		direct_control = False:
 			this sets the action in [F_z, M_x, M_y, M_z] format, where
 			F_z is the thrust force of the entire quadrotor in body frame
-			M_x is the moment around x in the body frame
-			M_y is the moment around y in the body frame
-			M_z is the moment around z in the body frame
+			M_x is the moment around x in body frame
+			M_y is the moment around y in body frame
+			M_z is the moment around z in body frame
 			
 			This method normally is better for linear controllers, and internally bounds the forces between [0, T2WR*M*G/8]
-			as the motors of a quadcopter can't shut down or work backwards.
+			as the motors of a quadcopter can't shut down or rotate backwards.
 			
 			The input should still be bounded in [-1,1] and is modulated by IC_THRUST and IC_MOMENTUM.
 			
-			Note that F_z action is normalized: F_z = F_in*IC_THRUST + M*G
-			M_x, M_y and M_z are normalized as follows: M = M_in*IC_MOMENTUM
+			Note that F_z action is normalized: 
+				F_z = F_in*IC_THRUST + M*G
+			M_x, M_y and M_z are normalized as follows: 
+				M = M_in*IC_MOMENTUM
 			
 			checking env.clipped_action is important, as some actions might be clipped to keep bounded motor forces.
 			
@@ -75,6 +77,9 @@ env.step(action):
 
 	moves the environment foward one timestep, actuated by given action.
 	
+	Action should be a 4 dimension numpy array:
+		action = np.array([1, -1, 1, -1]) as an example.
+	
 	returns:
 		if deep learning flag:
 			deep learning input, reward and done
@@ -89,7 +94,7 @@ env.step(action):
 			and a done statement
 			
 			
-all other functions are used internally and should'nt be called outside of the environment.
+all other functions are used internally and shouldn't be used outside of the environment.
 
 # plotter
 
