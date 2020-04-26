@@ -1,5 +1,4 @@
-## Quadrotor Environment
-# Quadrotor environment using python, with animation possibilities.
+# Quadrotor mathematical environment and 3D animation using python
 
 Quadrotor mathematical model from master's thesis "Modelagem Dinâmica E Controle De Um Veículo aéreo Não Tripulado Do Tipo Quadrirrotor" by Allan Carlos Ferreira De Oliveira, Brasil, São Paulo, Santo André, UFABC - 2019
 
@@ -13,8 +12,8 @@ Quadrotor dynamics incorporates:
 	
 3. Gyroscopic momentum based on prop speed.
 
-## How to Use
-# quadrotor
+# How to Use
+## quadrotor
 Declare the environment:
 
 	simple way:
@@ -96,6 +95,6 @@ env.step(action):
 			
 all other functions are used internally and shouldn't be used outside of the environment.
 
-# plotter
+## plotter
 
-# animation
+## animation
