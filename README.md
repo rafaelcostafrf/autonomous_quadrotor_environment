@@ -43,10 +43,10 @@ Declare the environment:
 			
 			
 		deep_learning:
-			the env being in deep learning mode means that each env.step returns desired deep learning input and a instant reward
-			desired deep learning input history size is set by T and includes:
+			Deep learning mode means that each env.step returns desired deep learning input and a reward
+			Deep learning input history size is set by T and includes:
 				action, position, velocity, quaternion, quaternion velocity for actual time and (T-1) past states		
-			desired deep learning input may be changed internally to include other states.
+			Deep learning input may be changed internally to include other states.
 			Reward function was set empirically, if needed, change it internally.
 		
 		T: history size, normally set as 1	
