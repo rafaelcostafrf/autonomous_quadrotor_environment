@@ -5,6 +5,7 @@ Quadrotor environment using python, with animation possibilities.
 ## How to Use
 # quadrotor
 Declare the environment:
+
 	simple way:
 		env = quad(time_step, max_timesteps, euler=1)
 		where time_step is the integration timestep (normally 0.01s), max_timesteps is the maximum env steps
@@ -47,7 +48,9 @@ Declare the environment:
 		debug: reward function debug, normally used to fine tune reward weights.
 			
 env.reset()
+
 	resets the environment.
+	
 	aditional flag	det_state:
 		resets the environment with the determined state, that should be as follows:
 			if euler flag is on:
@@ -58,7 +61,9 @@ env.reset()
 	returns the initial state
 	
 env.step(action):
+
 	moves the environment foward one timestep, actuated by given action.
+	
 	returns:
 		if deep learning flag:
 			deep learning input, reward and done
@@ -72,8 +77,9 @@ env.step(action):
 				[x, dx, y, dy, z, dz, q_0, q_1, q_2, q_3, w_xx, w_yy, w_zz]
 			and a done statement
 			
+			
 all other functions are used internally and should'nt be called outside of the environment.
 
-#plotter
+# plotter
 
-#animation
+# animation
