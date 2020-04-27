@@ -1,9 +1,19 @@
-## quadrotor_environment
-Quadrotor environment using python, with animation possibilities.
+# Quadrotor mathematical environment and 3D animation using python
 
+Quadrotor mathematical model from master's thesis "Modelagem Dinâmica E Controle De Um Veículo aéreo Não Tripulado Do Tipo Quadrirrotor" by Allan Carlos Ferreira De Oliveira, Brasil, São Paulo, Santo André, UFABC - 2019
 
-## How to Use
-# quadrotor
+Quadrotor dynamics incorporates:
+
+1. Full inertia matrix (if needed).
+	
+2. All calculations with quaternion angular position and velocities (no gymbal lock, even with euler flag on)
+	
+2. Drag forces, based on linear and angular velocity
+	
+3. Gyroscopic momentum based on prop speed.
+
+# How to Use
+## quadrotor
 Declare the environment:
 
 	simple way:
@@ -21,26 +31,28 @@ Declare the environment:
 		direct_control = False:
 			this sets the action in [F_z, M_x, M_y, M_z] format, where
 			F_z is the thrust force of the entire quadrotor in body frame
-			M_x is the moment around x in the body frame
-			M_y is the moment around y in the body frame
-			M_z is the moment around z in the body frame
+			M_x is the moment around x in body frame
+			M_y is the moment around y in body frame
+			M_z is the moment around z in body frame
 			
 			This method normally is better for linear controllers, and internally bounds the forces between [0, T2WR*M*G/8]
-			as the motors of a quadcopter can't shut down or work backwards.
+			as the motors of a quadcopter can't shut down or rotate backwards.
 			
 			The input should still be bounded in [-1,1] and is modulated by IC_THRUST and IC_MOMENTUM.
 			
-			Note that F_z action is normalized: F_z = F_in*IC_THRUST + M*G
-			M_x, M_y and M_z are normalized as follows: M = M_in*IC_MOMENTUM
+			Note that F_z action is normalized: 
+				F_z = F_in*IC_THRUST + M*G
+			M_x, M_y and M_z are normalized as follows: 
+				M = M_in*IC_MOMENTUM
 			
 			checking env.clipped_action is important, as some actions might be clipped to keep bounded motor forces.
 			
 			
 		deep_learning:
-			the env being in deep learning mode means that each env.step returns desired deep learning input and a instant reward
-			desired deep learning input history size is set by T and includes:
+			Deep learning mode means that each env.step returns desired deep learning input and a reward
+			Deep learning input history size is set by T and includes:
 				action, position, velocity, quaternion, quaternion velocity for actual time and (T-1) past states		
-			desired deep learning input may be changed internally to include other states.
+			Deep learning input may be changed internally to include other states.
 			Reward function was set empirically, if needed, change it internally.
 		
 		T: history size, normally set as 1	
@@ -64,6 +76,9 @@ env.step(action):
 
 	moves the environment foward one timestep, actuated by given action.
 	
+	Action should be a 4 dimension numpy array:
+		action = np.array([1, -1, 1, -1]) as an example.
+	
 	returns:
 		if deep learning flag:
 			deep learning input, reward and done
@@ -77,9 +92,19 @@ env.step(action):
 				[x, dx, y, dy, z, dz, q_0, q_1, q_2, q_3, w_xx, w_yy, w_zz]
 			and a done statement
 			
-			
-all other functions are used internally and should'nt be called outside of the environment.
+useful variables:
 
-# plotter
+	env.ang = preset Euler angles
+	env.state = present state in quaternions
+	env.i = environment iteration step
+	env.done = done flag
+	env.solved = solved flag (useful in deep learning environments)
+	env.reward = present reward
+	env.clipped_action = if indirect control, clipped action returns the true action based on given action on step
+	
+	
+all other functions are used internally and shouldn't be used outside of the environment.
 
-# animation
+## plotter
+
+## animation
