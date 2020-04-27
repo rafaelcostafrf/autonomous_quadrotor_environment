@@ -1,13 +1,13 @@
 from scipy import integrate
 import numpy as np
+from quaternion_euler_utility import euler_quat, quat_euler, deriv_quat, quat_rot_mat
 from collections import deque
 from numpy.linalg import norm
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import pyplot as plt
 import vpython as visual
-from quaternion_euler_utility import euler_quat, quat_euler, deriv_quat, quat_rot_mat
-
-
+import PIL.ImageGrab
+# from vpython.no_notebook import stop_server
 
 """""
 QUADROTOR ENVIRONMENT
@@ -40,7 +40,7 @@ C_D = 1.1
 K_F = 1.435e-5
 K_M = 2.4086e-7
 I_R = 5e-5
-T2WR = 3
+T2WR = 2
 
 ## INDIRECT CONTROL CONSTANTS ##
 IC_THRUST = 6
@@ -66,17 +66,19 @@ A = np.array([[A_X,A_Y,A_Z]]).T
 ## REWARD PARAMETERS ##
 
 # CONTROL REWARD PENALITIES #
-P_C = 0.05
-P_C_D = 0.1
+P_C = 0.2
+P_C_D = 0.3
 
 ## TARGET STEADY STATE ERROR ##
-TR = [0.01,0.05,0.1]
-TR_P = [40,20,10]
+TR = [0.1]
+TR_P = [10]
 
 
 class quad():
 
     def __init__(self, t_step, n, euler=0, direct_control=0, deep_learning=0, T=1, debug=0):
+        current = visual.canvas.get_selected()
+        current.delete()
         
         """"
         inputs:
@@ -107,7 +109,7 @@ class quad():
         self.hist_size = self.state_size+1+self.action_size     #Deep Learning step dimension
         self.deep_learning_in_size = self.hist_size*self.T      #Deep Learning whole dimension (T steps)
         
-        self.action_hist = deque(maxlen=self.T)                 #Action history initialization, to use with average action penalty         
+        self.action_hist = deque(maxlen=self.T)                 #Action history initialization, to use with average action penality         
 
         self.done = True                                        #Env done Flag
     
@@ -118,7 +120,7 @@ class quad():
         self.direct_control_flag = direct_control
         
         self.inv_j = np.linalg.inv(J)
-        self.zero_control = np.ones(4)*(2/T2WR - 1)             #Neutral Action (used in reset and absolute action penalty) 
+        self.zero_control = np.ones(4)*(2/T2WR - 1)             #Neutral Action (used in reset and absolute action penality) 
         
     def seed(self, seed):
         
@@ -308,7 +310,7 @@ class quad():
         if det_state:
             if self.euler_flag:
                 ang = det_state[6:9]
-                quaternions = euler_quat(ang).flatten()
+                quaternions = Euler2Q(ang).flatten()
                 self.previous_state = np.concatenate((det_state[0:6],quaternions,det_state[-3:]))           
             else:
                 self.previous_state = det_state
@@ -331,7 +333,7 @@ class quad():
             return self.deep_learning_input
         else:
             if self.euler_flag:
-                ang = quat_euler(np.array([self.previous_state[6:10]]).T)
+                ang = Q2Euler(np.array([self.previous_state[6:10]]).T)
                 return np.concatenate((self.previous_state[0:6],ang,self.previous_state[-3:]))
             else:
                 return self.previous_state
@@ -428,7 +430,7 @@ class quad():
         action = self.action
         action_hist = self.action_hist
         
-        shaping = 200*(-norm(position/BB_POS) - norm(velocity/BB_VEL) - abs(psi/4))
+        shaping = 100*(-norm(position/BB_POS)-norm(velocity/BB_VEL)-norm(psi/4)-0.3*norm(euler_angles[0:2]/BB_ANG))
         
         #CASCADING REWARDS
         r_state = np.concatenate((position,[psi]))        
@@ -443,11 +445,12 @@ class quad():
         
         if self.prev_shaping is not None:
             self.reward = shaping - self.prev_shaping
-       
-        #ABSOLUTE CONTROL PENALTY
+        self.prev_shaping = shaping
+        
+        #ABSOLUTE CONTROL PENALITY
                    
         abs_control = -np.sum(np.square(action - self.zero_control)) * P_C
-        #AVERAGE CONTROL PENALTY        
+        #AVERAGE CONTROL PENALITY        
         avg_control = -np.sum(np.square(action - np.mean(action_hist,0))) * P_C_D
         
         ## TOTAL REWARD SHAPING ##
@@ -469,6 +472,7 @@ class quad():
             
         elif self.done:
             self.reward = -200
+            self.solved = 0
             
         if debug and self.i%debug==0 and self.prev_shaping is not None:
             print('\n---Starting Debug---')
@@ -478,7 +482,7 @@ class quad():
             print('Timestep: ' + str(self.i))
             print('Reward: %.2f \t Prev Shaping: %.2f \t Shaping: %.2f \n ABS Cont: %.2f \t AVG Cont: %.2f' %(self.reward, self.prev_shaping, shaping, abs_control, avg_control))
             print('---Debug End---')
-        self.prev_shaping = shaping
+        
             
 class render(): 
         
@@ -582,7 +586,7 @@ class animation():
         visual.rate(24)
         self.scene = visual.canvas(width=800, height=800)
         self.scene.autoscale = False
-        self.scene.forward = visual.vector(0,-1,0)
+        self.scene.forward = visual.vector(-0.3,-1,-0.3)
         self.scene.up = visual.vector(0,0,1)
         self.scene.range = 3
         p_f = visual.vector(0,0,-BB_POS)
@@ -599,34 +603,55 @@ class animation():
         arm_2 = visual.box( length=2*D, height=0.05, width=0.05, color=visual.color.red )
         arrow = visual.arrow( axis = visual.vector(0,0,0.3), shaftwidth=0.05)
         
+        sphete = visual.sphere(radius=0.1, color = visual.color.red, opacity = 0.5)
         arm_2.rotate(angle=np.pi/2, axis = visual.vector(0,0,1))
         
-        self.drone = visual.compound([arm_1, arm_2, arrow], origin = visual.vector(0,0,0), make_trail=True)
+        self.PIL_BB = (8, 110, 800+8, 800+110)
+        
+        self.drone = visual.compound([arm_1, arm_2, arrow], origin = visual.vector(0,0,0), make_trail=True, trail_color = visual.color.cyan)
 
         
     def animate(self,states):        
         states = np.array(states)
-
-        s_i=5
+        
+        s_i=7
         i=0
         in_pos = visual.vector(states[i,0],states[i,2],states[i,4])     
         self.drone.pos = in_pos
         self.scene.center = in_pos
         phi, theta, psi = states[i,6], states[i,7], states[i,8]
+        #x rotation
+        self.drone.rotate(phi, visual.vector(1,0,0))
+        #y rotation
+        self.drone.rotate(theta, visual.vector(0,1,0))
+        #z rotation
+        self.drone.rotate(psi, visual.vector(0,0,1))        
         phi_ant, theta_ant, psi_ant = phi, theta, psi
+        im = PIL.ImageGrab.grab(self.PIL_BB)
+        im.save("./animation/{:04d}.png".format(i), "png")
         for x,y,z,phi,theta,psi in zip(states[::s_i,0],states[::s_i,2],states[::s_i,4],states[::s_i,6],states[::s_i,7],states[::s_i,8]):   
              visual.rate(24)
              drone_pos = visual.vector(x,y,z)
              self.drone.pos = drone_pos
-             #x rotation
-             self.drone.rotate(phi-phi_ant, visual.vector(1,0,0))
-             #y rotation
-             self.drone.rotate(theta-theta_ant, visual.vector(0,1,0))
              #z rotation
-             self.drone.rotate(psi-psi_ant, visual.vector(0,0,1))
+             self.drone.rotate(-psi_ant, visual.vector(0,0,1))
+             #y rotation
+             self.drone.rotate(-theta_ant, visual.vector(0,1,0))
+             #x rotation
+             self.drone.rotate(-phi_ant, visual.vector(1,0,0))
+             #x rotation
+             self.drone.rotate(phi, visual.vector(1,0,0))
+             #y rotation
+             self.drone.rotate(theta, visual.vector(0,1,0))
+             #z rotation
+             self.drone.rotate(psi, visual.vector(0,0,1))
              phi_ant, theta_ant, psi_ant = phi, theta, psi
 
              self.scene.center = drone_pos
              # scene.forward = visual.vector(0,-1,0)
              i+=1
              self.scene.waitfor("draw_complete")
+             im = PIL.ImageGrab.grab(self.PIL_BB)
+             im.save("./animation/{:04d}.png".format(i), "png")
+        input('Enter para parar o servidor')
+        visual.no_notebook.stop_server()
