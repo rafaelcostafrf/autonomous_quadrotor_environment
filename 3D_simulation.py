@@ -289,7 +289,7 @@ class MyApp(ShowBase):
     
     def tabulate_gen(self, real, image, accel, gps, gyro, triad):
         data = []
-        header = ['Nome', 'Real', 'Imagem', 'Accel', 'GPS', 'Gyro', 'Triad']
+        header = ['---', 'State', 'Image State', 'Accelerometer State', 'GPS State', 'Gyro State', 'Triad State']
         data_name = ['x', 'y', 'z', 'q0', 'q1', 'q2', 'q3']
 
         for i in range(3):
