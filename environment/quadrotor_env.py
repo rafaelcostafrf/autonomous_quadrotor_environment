@@ -75,7 +75,7 @@ TR_P = [100, 10]
 
 class quad():
 
-    def __init__(self, t_step, n, euler=0, direct_control=0, deep_learning=0, T=1, debug=0):
+    def __init__(self, t_step, n, euler=0, direct_control=0, T=1):
         current = visual.canvas.get_selected()
         current.delete()
         
@@ -91,9 +91,9 @@ class quad():
         
         """
         
+        self.i = 0
+        self.T = T                                              #Initial Steps
         
-        self.T = T                                              #Deep Learning Time History
-        self.debug = debug                                      #Reward Function debug flag
         self.bb_cond = np.array([BB_POS, BB_VEL,
                                  BB_POS, BB_VEL,
                                  BB_POS, BB_VEL,
@@ -101,25 +101,18 @@ class quad():
                                  BB_VEL, BB_VEL, BB_VEL])       #Bounding Box Conditions Array
         
         
-        self.state_size = 13                                    #Quadrotor states dimension
+        self.state_size = 13                                   #Quadrotor states dimension
         self.action_size = 4                                    #Quadrotor action dimension
         
         
-        self.hist_size = self.state_size+1+self.action_size     #Deep Learning step dimension
-        self.deep_learning_in_size = self.hist_size*self.T      #Deep Learning whole dimension (T steps)
-        
-        self.action_hist = deque(maxlen=self.T)                 #Action history initialization, to use with average action penality         
-
         self.done = True                                        #Env done Flag
     
         self.n = n+self.T                                       #Env Maximum Steps
         self.t_step = t_step
-        self.deep_learning_flag = deep_learning
-        self.euler_flag = euler
-        self.direct_control_flag = direct_control
         
         self.inv_j = np.linalg.inv(J)
         self.zero_control = np.ones(4)*(2/T2WR - 1)             #Neutral Action (used in reset and absolute action penality) 
+        self.direct_control_flag = direct_control
         
     def seed(self, seed):
         
@@ -297,6 +290,9 @@ class quad():
         outputs:
             previous_state: system's initial state
         """""
+        state = []
+        action = []
+        self.action_hist = []
         
         self.solved = 0
         self.done = False
@@ -304,37 +300,23 @@ class quad():
         self.prev_shaping = None
         self.previous_state = np.zeros(self.state_size)
         
-        if det_state is not None:
-            if self.euler_flag:
-                ang = det_state[6:9]
-                quaternions = euler_quat(ang).flatten()
-                self.previous_state = np.concatenate((det_state[0:6],quaternions,det_state[-3:]))           
-            else:
-                self.previous_state = det_state
+        if det_state is not None:        
+            self.previous_state = det_state
         else:
             self.ang = np.random.rand(3)-0.5
             Q_in = euler_quat(self.ang)
             self.previous_state[0:6] = (np.random.rand(6)-0.5)*BB_POS
             self.previous_state[6:10] = Q_in.T
             self.previous_state[10:13] = (np.random.rand(3)-0.5)*1
-
-
-        self.deep_learning_input = np.zeros(self.deep_learning_in_size)
         
         for i in range(self.T):
             self.action = self.zero_control
             self.action_hist.append(self.action)
-            self.step(self.action)
-        
-        if self.deep_learning_flag:
-            return self.deep_learning_input
-        else:
-            if self.euler_flag:
-                ang = quat_euler(np.array([self.previous_state[6:10]]).T)
-                return np.concatenate((self.previous_state[0:6],ang,self.previous_state[-3:]))
-            else:
-                return self.previous_state
 
+            state_t, reward, done = self.step(self.action)
+            state.append(state_t.flatten())
+            action.append(self.zero_control)
+        return np.array(state), np.array(action)
     
 
 
@@ -371,28 +353,15 @@ class quad():
         
         self.y = (integrate.solve_ivp(self.drone_eq, (0, self.t_step), self.previous_state, args=(u, ))).y
         self.state = np.transpose(self.y[:, -1])
-        
+        self.quat_state = np.array([np.concatenate((self.state[0:10], self.V_q))])
         
         q = np.array([self.state[6:10]]).T
         q = q/np.linalg.norm(q)
         self.ang = quat_euler(q)
-        
-        
-        self.deep_learning_input = np.roll(self.deep_learning_input, -self.hist_size)
-        self.deep_learning_input[-self.hist_size:] = np.concatenate((self.action, self.state[0:10], self.V_q))
-        
         self.previous_state = self.state
         self.done_condition()
-        
-        
-        if self.deep_learning_flag:
-            self.reward_function(debug=self.debug)    
-            return self.deep_learning_input, self.reward, self.done
-        else:
-            if self.euler_flag:
-                return np.concatenate((self.state[0:6],self.ang,self.state[-3:])), self.done
-            else:
-                return self.state, self.done
+        self.reward_function()
+        return self.quat_state, self.reward, self.done
 
     def done_condition(self):
         
@@ -404,8 +373,6 @@ class quad():
         for x, c in zip(np.abs(cond_x), self.bb_cond):
             if  x >= c:
                 self.done = True
-        if not self.deep_learning_flag and self.i >= self.n:
-            self.done = True
 
     def reward_function(self, debug=0):
         
@@ -470,15 +437,6 @@ class quad():
         elif self.done:
             self.reward = -200
             self.solved = 0
-            
-        if debug and self.i%debug==0 and self.prev_shaping is not None:
-            print('\n---Starting Debug---')
-            print('Pos: ' + str(position) + '\t Velocity: '+ str(velocity))
-            print('Euler: ' +str(euler_angles) + '\t Body Ang Velocity: ' + str(body_ang_vel))
-            print('Action: '+str(self.input))
-            print('Timestep: ' + str(self.i))
-            print('Reward: %.2f \t Prev Shaping: %.2f \t Shaping: %.2f \n ABS Cont: %.2f \t AVG Cont: %.2f' %(self.reward, self.prev_shaping, shaping, abs_control, avg_control))
-            print('---Debug End---')
          
             
 class sensor():
@@ -535,10 +493,11 @@ class sensor():
         self.a_b_accel = 0
         self.m_b = 0
         self.g_b = 0
+        self.acceleration_t0 = np.zeros(3)
         self.position_t0 = self.quad.state[0:5:2]
         self.velocity_t0 = self.quad.state[1:6:2]
         self.quaternion_t0 = self.quad.state[6:10]
-        self.triad_t0 = self.quaternion_t0
+
     
     def gps(self):
         read_error_pos = np.random.normal(0, self.gps_std_p, 3)
@@ -559,9 +518,9 @@ class sensor():
         self.m_b = self.m_b + self.m_b_d*self.quad.t_step
         
         #Gravity vector as read from body sensor
-        gravity_body = np.dot(self.quad.mat_rot.T,gravity_vec) + np.random.normal(np.random.random(3)*self.a_b_grav, self.a_std, 3)
+        gravity_body = np.dot(self.quad.mat_rot.T, gravity_vec) + np.random.normal(np.random.random(3)*self.a_b_grav, self.a_std, 3)
         #Magnetic Field vector as read from body sensor
-        magnet_body = np.dot(self.quad.mat_rot.T,magnet_vec) + np.random.normal(np.random.random(3)*self.m_b, self.m_std, 3)      
+        magnet_body = np.dot(self.quad.mat_rot.T, magnet_vec) + np.random.normal(np.random.random(3)*self.m_b, self.m_std, 3)      
       
 
         #Accel vector is more accurate
@@ -596,9 +555,12 @@ class sensor():
     def accel_int(self):
         accel_body = self.accel()      
         _, R = self.triad()             
-        acceleration = np.dot(R, accel_body)               
-        velocity = self.velocity_t0 + acceleration*self.quad.t_step
-        position = self.position_t0 + velocity*self.quad.t_step
+        acceleration = np.dot(R, accel_body) 
+       
+        velocity = self.velocity_t0 + self.acceleration_t0*self.quad.t_step + (acceleration-self.acceleration_t0)/2*self.quad.t_step
+        position = self.position_t0 + self.velocity_t0*self.quad.t_step + (velocity-self.velocity_t0)/2*self.quad.t_step
+        
+        self.acceleration_t0 = acceleration
         self.velocity_t0 = velocity
         self.position_t0 = position
         return acceleration, velocity, position

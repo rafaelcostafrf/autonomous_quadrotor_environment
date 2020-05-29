@@ -1,5 +1,19 @@
 import numpy as np
+"""
+MECHANICAL ENGINEERING POST-GRADUATE PROGRAM
+UNIVERSIDADE FEDERAL DO ABC - SANTO ANDRÉ, BRASIL
 
+NOME: RAFAEL COSTA FERNANDES
+RA: 21201920754
+E−MAIL: COSTA.FERNANDES@UFABC.EDU.BR
+
+DESCRIPTION:
+    Quaternion and euler utility algorithms.
+    Converts euler to quaternions
+    Converts quaternions to euler
+    Computes the quaternions derivative (Useful for time integration of quaternions)
+    Converts quaternions to rotatio matrix
+"""
 def euler_quat(ang):
     #ROTACAO 3-2-1
     phi = ang[0]
