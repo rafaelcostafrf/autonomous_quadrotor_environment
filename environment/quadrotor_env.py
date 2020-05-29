@@ -597,9 +597,7 @@ class plotter():
     
     def __init__(self, env, depth_plot=False):        
         plt.close('all')
-        plt.figure('States')
-        mng = plt.get_current_fig_manager()
-        mng.window.showMaximized()
+        self.figure = plt.figure('States')
         self.depth_plot = depth_plot
         self.env = env
         self.states = []
@@ -613,15 +611,6 @@ class plotter():
                             '--', '--', '--', 
                             ':', ':', ':', ':']
         
-        if self.depth_plot:            
-            fig3d = plt.figure('3D map')
-            self.ax = Axes3D(fig3d)
-            self.ax.set_xlabel('x (m)')
-            self.ax.set_ylabel('y (m)')       
-            self.ax.set_zlabel('z (m)')        
-            mng = plt.get_current_fig_manager()
-            mng.window.showMaximized()
-        
             
     def add(self):
         state = np.concatenate((self.env.state[0:5:2].flatten(), self.env.ang.flatten(), self.env.clipped_action.flatten()))
@@ -634,30 +623,30 @@ class plotter():
         
     def plot(self):
         plt.figure('States')
-        plt.cla()
         self.states = np.array(self.states)
         self.times = np.array(self.times)
         for print_state, label, line_style in zip(self.print_list, self.plot_labels, self.line_styles):
             plt.plot(self.times, self.states[:,print_state], label = label, ls=line_style, lw=1)
         plt.legend()
         plt.grid(True)
-        plt.draw()
-        plt.pause(1)
+        plt.show()
         if self.depth_plot:
-            plt.figure('3D map')
-            plt.cla()
-            self.states = np.array(self.states)
-            self.times = np.array(self.times)
+            fig3d = plt.figure('3D map')
+            ax = Axes3D(fig3d)
+            ax.set_xlabel('x (m)')
+            ax.set_ylabel('y (m)')       
+            ax.set_zlabel('z (m)')    
+            states = np.array(self.states)
+            times = np.array(self.times)
             xs = self.states[:,0]
             ys = self.states[:,1]
             zs = self.states[:,2]
             t = self.times
-            self.ax.scatter(xs,ys,zs,c=plt.cm.jet(t/max(t)))
-            self.ax.plot3D(xs,ys,zs,linewidth=0.5)
-            self.ax.set_xlim(-BB_POS, BB_POS)
-            self.ax.set_ylim(-BB_POS, BB_POS)
-            self.ax.set_zlim(-BB_POS, BB_POS)
+            ax.scatter(xs,ys,zs,c=plt.cm.jet(t/max(t)))
+            ax.plot3D(xs,ys,zs,linewidth=0.5)
+            ax.set_xlim(-BB_POS, BB_POS)
+            ax.set_ylim(-BB_POS, BB_POS)
+            ax.set_zlim(-BB_POS, BB_POS)
             plt.grid(True)
-            plt.draw()
-            plt.pause(1)
+            plt.show()
         self.clear()
