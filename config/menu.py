@@ -28,19 +28,16 @@ class menu():
             textObject.text=('Operation Mode: True State')
             self.drone.REAL_CTRL = True
             cv.IMG_POS_DETER = False
-            self.drone.error=[]
             
         def mems():    
             textObject.text=('Operation Mode: Mems')
             drone.REAL_CTRL = False
             cv.IMG_POS_DETER = False
-            self.drone.error=[]
             
         def hybrid():
             textObject.text=('Operation Mode: Hybrid')
             self.drone.REAL_CTRL = False
             cv.IMG_POS_DETER = True
-            self.drone.error=[]
         
         a = DirectButton(text=("True State"), borderWidth=(.3, .3), pos=(0,0,0), scale= 0.05, command=true_state)
         a.setPos((1.5, 0, 0))
@@ -59,9 +56,10 @@ class menu():
             self.error_text = OnscreenText(text='', pos=(1.5, 0.16), scale=0.04,
                                   fg=(1, 1, 1, 1), shadow=(0,0,0,1), align=TextNode.ACenter,
                                   mayChange=1)
-        if task.frame % 30 == 0:
-            if len(self.drone.error) > 1:
-                error = np.sum(np.square(self.drone.error))
+        if task.frame % 30 == 1:
+            error = self.drone.control_error
+            if len(error) > 1:
+                error = np.sum(np.square(error))
             else:
                 error = 0
             error_str = f'Error: {error:.5f} '

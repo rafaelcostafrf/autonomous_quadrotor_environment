@@ -39,10 +39,6 @@ class computer_vision():
         self.render.cam_1.reparentTo(self.quad_model)
         self.render.cam_1.setPos(0, 0, 0.01)
         self.render.cam_1.setHpr(0, 270, 0)
-        self.time_total_img = []
-        self.image_pos = None
-        self.vel_sens = deque(maxlen=100)
-        self.vel_img = deque(maxlen=100)
 
             
     def calibrate(self, task):
@@ -148,6 +144,11 @@ class computer_vision():
         return img    
     
     def pos_deter(self, task):
+        if self.quad_env.done or task.frame == 0:
+            self.time_total_img = []
+            self.image_pos = None
+            self.vel_sens = deque(maxlen=100)
+            self.vel_img = deque(maxlen=100)
         if self.IMG_POS_DETER:
             time_iter = time.time()
             if self.calibrated and task.frame % 10 == 0:           
@@ -196,12 +197,12 @@ class computer_vision():
                                 self.quad_sens.quaternion_t0 = self.quad_sens.quaternion_t0*0.8+self.image_quat*0.2
                                 
                                 
-                                image_state = np.concatenate((trans.flatten(), quaternion.flatten()))                    
-                                data, header = self.tabulate_gen(real_state, image_state, self.quad_pos.pos_accel, self.quad_pos.pos_gps, self.quad_pos.quaternion_gyro, self.quad_pos.quaternion_triad)
-                                print(tabulate(data, headers = header, numalign='center', stralign='center', floatfmt='.3f'))
-                                print('\n')
+                                # image_state = np.concatenate((trans.flatten(), quaternion.flatten()))                    
+                                # data, header = self.tabulate_gen(real_state, image_state, self.quad_pos.pos_accel, self.quad_pos.pos_gps, self.quad_pos.quaternion_gyro, self.quad_pos.quaternion_triad)
+                                # print(tabulate(data, headers = header, numalign='center', stralign='center', floatfmt='.3f'))
+                                # print('\n')
                                 self.draw(img, corners, imgpts)
                                 self.task_frame_ant = task.frame
-                    cv.imshow('Drone Camera',np.flipud(cv.cvtColor(img, cv.COLOR_RGB2BGR)))
+                    # cv.imshow('Drone Camera',np.flipud(cv.cvtColor(img, cv.COLOR_RGB2BGR)))
             self.time_total_img.append(time.time()-time_iter)
         return task.cont

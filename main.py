@@ -54,6 +54,13 @@ DESCRIÇÃO:
 
 IMG_POS_DETER = False
 REAL_CTRL = False
+HOVER = True
+
+EPISODE_STEPS = 3000
+ERROR_AQS_EPISODES = 40
+ERROR_PATH = './data/hover/' if HOVER else './data/random_initial_state/'
+
+
 
 mydir = os.path.abspath(sys.path[0])
 
@@ -72,7 +79,7 @@ class MyApp(ShowBase):
         quad_setup(self, render, mydir)
         
         # DRONE POSITION
-        self.drone = quad_position(self, self.quad_model, self.prop_models, REAL_CTRL)
+        self.drone = quad_position(self, self.quad_model, self.prop_models, EPISODE_STEPS, REAL_CTRL, IMG_POS_DETER, ERROR_AQS_EPISODES, ERROR_PATH, HOVER)
         
         # COMPUTER VISION
         self.cv = computer_vision(self, self.quad_model, self.drone.env, self.drone.sensor, self.drone, mydir, IMG_POS_DETER)        
