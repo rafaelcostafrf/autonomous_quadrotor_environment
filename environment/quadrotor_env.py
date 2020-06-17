@@ -305,7 +305,8 @@ class quad():
         else:
             self.ang = np.random.rand(3)-0.5
             Q_in = euler_quat(self.ang)
-            self.previous_state[0:6] = (np.random.rand(6)-0.5)*BB_POS
+            self.previous_state[0:5:2] = (np.random.rand(3)-0.5)*BB_POS
+            self.previous_state[1:6:2] = (np.random.rand(3)-0.5)*BB_POS/2
             self.previous_state[6:10] = Q_in.T
             self.previous_state[10:13] = (np.random.rand(3)-0.5)*1
         
@@ -427,9 +428,9 @@ class quad():
         if current_state < target_state:
             self.reward = +500
             self.solved = 1
-            self.done = True 
+            # self.done = True 
             
-        elif self.i >= self.n and not self.done:
+        if self.i >= self.n and not self.done:
             self.reward = self.reward
             self.done = True
             self.solved = 0
@@ -448,33 +449,31 @@ class sensor():
     """
     
     def __init__(self, env,
-                 accel_std = 0.1, accel_bias_drift = 0.001, 
-                 gyro_std = 0.035, gyro_bias_drift = 0.0003, 
-                 magnet_std = 15, magnet_bias_drift = 0.15, 
+                 accel_std = 0.1, accel_bias_drift = 0.0005, 
+                 gyro_std = 0.035, gyro_bias_drift = 0.00015, 
+                 magnet_std = 15, magnet_bias_drift = 0.075, 
                  gps_std_p = 1.71, gps_std_v=0.5):
-
+        
+        self.std = [accel_std, gyro_std, magnet_std, gps_std_p, gps_std_v]
+        self.b_d = [accel_bias_drift, gyro_bias_drift, magnet_bias_drift]
         self.quad = env
-        
-        error = True
-        
-        self.a_std = accel_std*error
-        self.a_b_d = (np.random.random()-0.5)*2*accel_bias_drift*error
-        
-        self.g_std = gyro_std*error
-        self.g_b_d = (np.random.random()-0.5)*2*gyro_bias_drift*error
-        
-        self.m_std = magnet_std*error
-        self.m_b_d = (np.random.random()-0.5)*2*magnet_bias_drift*error
-        
-        self.gps_std_p = gps_std_p*error
-        self.gps_std_v = gps_std_v*error
+        self.error = True
+        self.bias_reset()
+   
+    def bias_reset(self):        
+        self.a_std = self.std[0]*self.error
+        self.a_b_d = (np.random.random()-0.5)*2*self.b_d[0]*self.error        
+        self.g_std = self.std[1]*self.error
+        self.g_b_d = (np.random.random()-0.5)*2*self.b_d[1]*self.error        
+        self.m_std = self.std[2]*self.error
+        self.m_b_d = (np.random.random()-0.5)*2*self.b_d[2]*self.error        
+        self.gps_std_p = self.std[3]*self.error
+        self.gps_std_v = self.std[4]*self.error
     
         
-        
     def accel(self):
-        
-        self.a_b_accel = self.a_b_accel + self.a_b_d*self.quad.t_step
-        
+    
+        self.a_b_accel = self.a_b_accel + self.a_b_d*self.quad.t_step        
         read_error = np.random.normal(self.a_b_accel, self.a_std, 3)
         read_accel = np.dot(self.quad.mat_rot.T, self.quad.accel.flatten())
         return read_error+read_accel
@@ -497,6 +496,7 @@ class sensor():
         self.position_t0 = self.quad.state[0:5:2]
         self.velocity_t0 = self.quad.state[1:6:2]
         self.quaternion_t0 = self.quad.state[6:10]
+        self.bias_reset()
 
     
     def gps(self):
@@ -557,8 +557,8 @@ class sensor():
         _, R = self.triad()             
         acceleration = np.dot(R, accel_body) 
        
-        velocity = self.velocity_t0 + self.acceleration_t0*self.quad.t_step + (acceleration-self.acceleration_t0)/2*self.quad.t_step
-        position = self.position_t0 + self.velocity_t0*self.quad.t_step + (velocity-self.velocity_t0)/2*self.quad.t_step
+        velocity = self.velocity_t0 + acceleration*self.quad.t_step
+        position = self.position_t0 + velocity*self.quad.t_step
         
         self.acceleration_t0 = acceleration
         self.velocity_t0 = velocity
