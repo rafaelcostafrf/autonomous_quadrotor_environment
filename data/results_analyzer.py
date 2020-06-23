@@ -108,7 +108,7 @@ for folder in folders:
     for avg, var, avg_2, var_2, name in zip(avg_mems, var_mems, avg_hyb, var_hyb, names):
         fig_plot(t, avg, var, avg_2, var_2, name)
 
-    print('\n------' + folder + ' Estimation Error ------ \n')
+    print('\n------ ' + folder + ' Estimation Error ------ \n')
     pos_err = np.mean(abs(error_mems[1][:,0:3,:]))
     pos_var = np.var(abs(error_mems[1][:,0:3,:]))
     quat_err = np.mean(abs(error_mems[1][:,-4:,:]))
@@ -121,4 +121,4 @@ for folder in folders:
     quat_err_img = np.mean(abs(error_hyb[1][:,-4:,:]))
     quat_var_img = np.var(abs(error_hyb[1][:,-4:,:]))
     print('Hybrid')
-    print(f'Position: {pos_err_img:.6f}+-{pos_var_img:.6f}    Quaternion: {quat_err_img:.6f}+-{quat_var_img:.6f}')
+    print(f'Position : {pos_err_img:.6f}+-{pos_var_img:.6f}    Quaternion: {quat_err_img:.6f}+-{quat_var_img:.6f}')
