@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 from torch.distributions import MultivariateNormal
-import numpy as np
 
 """
 MECHANICAL ENGINEERING POST-GRADUATE PROGRAM
@@ -40,7 +39,7 @@ class ActorCritic(nn.Module):
                 nn.Tanh(),
                 nn.Linear(h2, 1)
                 )
-        self.action_var = torch.full((action_dim,), action_std*action_std).to(device)
+        self.action_var = torch.full((action_dim,), action_std*action_std, dtype=torch.float).to(device)
         
     def forward(self):
         raise NotImplementedError
