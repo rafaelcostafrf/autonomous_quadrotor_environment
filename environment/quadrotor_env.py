@@ -236,10 +236,10 @@ class quad():
         self.f_inertial = np.dot(self.mat_rot, self.f_body)
         
         #INERTIAL ACCELERATIONS        
-        accel_x = self.f_inertial[0]/M        
-        accel_y = self.f_inertial[1]/M        
-        accel_z = self.f_inertial[2]/M-G
-        self.accel = np.array([[accel_x[0], accel_y[0], accel_z[0]]]).T
+        accel_x = self.f_inertial[0, 0]/M        
+        accel_y = self.f_inertial[1, 0]/M        
+        accel_z = self.f_inertial[2, 0]/M-G
+        self.accel = np.array([[accel_x, accel_y, accel_z]]).T
         
         #BODY MOMENTUM
         W = np.array([[w_xx],
@@ -265,11 +265,12 @@ class quad():
         
         # RESULTS ORDER:
         # 0 x, 1 vx, 2 y, 3 vy, 4 z, 5 vz, 6 q0, 7 q1, 8 q2, 9 q3, 10 w_xx, 11 w_yy, 12 w_zz
-        return np.array([vel_x, accel_x,
+        out = np.array([vel_x, accel_x,
                          vel_y, accel_y,
                          vel_z, accel_z,
                          dq0, dq1, dq2, dq3,
                          accel_w_xx, accel_w_yy, accel_w_zz])
+        return out
 
     def reset(self,det_state = None):
         

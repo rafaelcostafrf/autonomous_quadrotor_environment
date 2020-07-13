@@ -11,10 +11,11 @@ from direct.showbase.ShowBase import ShowBase
 #Custom Functions
 from environment.position import quad_position
 from computer_vision.quadrotor_cv import computer_vision
+from computer_vision.camera_calibration import calibration
 from models.world_setup import world_setup, quad_setup
 from models.camera_control import camera_control
 from config.menu import menu
-
+from computer_vision.img_2_cv import get_image_cv
 
 """
 INF209B − TÓPICOS ESPECIAIS EM PROCESSAMENTO DE SINAIS:
@@ -51,16 +52,23 @@ DESCRIÇÃO:
 """
 
 
+# POSITION AND ATTITUDE ESTIMATION BY IMAGE, ELSE BY MEMS SENSORS
+IMG_POS_DETER = True
 
-IMG_POS_DETER = False
+# REAL STATE CONTROL ELSE BY ESTIMATION METHODS
 REAL_CTRL = False
+
+# HOVER FLIGHT ELSE RANDOM INITIAL STATE
 HOVER = True
 
+# NUMBER OF EPISODE TIMESTEPS 
 EPISODE_STEPS = 3000
+
+# TOTAL NUMBER OF EPISODES
 ERROR_AQS_EPISODES = 40
+
+# PATH TO ERROR DATALOG
 ERROR_PATH = './data/hover/' if HOVER else './data/random_initial_state/'
-
-
 
 mydir = os.path.abspath(sys.path[0])
 
@@ -71,24 +79,34 @@ class MyApp(ShowBase):
         
         ShowBase.__init__(self)       
         render = self.render
+        
+        # CAMERA NEUTRAL POSITION
         self.cam_neutral_pos = panda3d.core.LPoint3f(5, 5, 7)
 
+        self.img_buffer = get_image_cv(self)
         
         # MODELS SETUP
         world_setup(self, render, mydir)
         quad_setup(self, render, mydir)
         
+        # CALIBRATION ALGORITHM
+        self.camera_cal = calibration(self, self.img_buffer)    
+        
+        if self.camera_cal.calibrated:
+            self.run_setup()
+            
+    def run_setup(self):
         # DRONE POSITION
         self.drone = quad_position(self, self.quad_model, self.prop_models, EPISODE_STEPS, REAL_CTRL, IMG_POS_DETER, ERROR_AQS_EPISODES, ERROR_PATH, HOVER)
         
         # COMPUTER VISION
-        self.cv = computer_vision(self, self.quad_model, self.drone.env, self.drone.sensor, self.drone, mydir, IMG_POS_DETER)        
+        self.cv = computer_vision(self, self.quad_model, self.drone.env, self.drone.sensor, self.drone, self.img_buffer, self.camera_cal, mydir, IMG_POS_DETER)        
         
-        
+        # IN ENGINE MENU (REAL TIME CONTROLLER CHANGE)
         menu(self, self.drone, self.drone.sensor, self.cv)
+        
         # CAMERA CONTROL
-        camera_control(self, render)      
-    
+        camera_control(self, self.render) 
     
 app = MyApp()
 app.run()
