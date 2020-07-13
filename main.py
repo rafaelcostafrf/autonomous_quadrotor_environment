@@ -107,6 +107,6 @@ class MyApp(ShowBase):
         
         # CAMERA CONTROL
         camera_control(self, self.render) 
-    
+        print(sys.modules.keys())
 app = MyApp()
 app.run()
