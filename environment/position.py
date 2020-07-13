@@ -9,7 +9,6 @@ from environment.controller.dl_auxiliary import dl_in_gen
 
 ## PPO SETUP ##
 time_int_step = 0.01
-
 T = 5
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -27,8 +26,10 @@ class quad_position():
         self.episode_n = 1
         self.time_total_sens = []
         self.T = T
+        
         self.render = render
         self.render.taskMgr.add(self.drone_position_task, 'Drone Position')
+        
         # ENV SETUP
         self.env = quad(time_int_step, EPISODE_STEPS, direct_control=1, T=T)
         self.sensor = sensor(self.env)

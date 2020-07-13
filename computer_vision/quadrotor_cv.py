@@ -3,17 +3,18 @@ import numpy as np
 import time
 from collections import deque
 from scipy.spatial.transform import Rotation as R
+from computer_vision.detector_setup import detection_setup
 
 class computer_vision():
     def __init__(self, render, quad_model, quad_env, quad_sens, quad_pos, img_buffer, camera_cal, mydir, IMG_POS_DETER):
+        
         self.mtx = camera_cal.mtx
         self.dist = camera_cal.dist
+        
         self.IMG_POS_DETER = IMG_POS_DETER
-        self.mydir = mydir
-        self.quad_model = quad_model
+
         self.quad_env = quad_env
         self.quad_sens = quad_sens
-        self.quad_pos = quad_pos
         self.image_pos = None
         self.vel_sens = deque(maxlen=100)
         self.vel_img = deque(maxlen=100)
@@ -21,10 +22,8 @@ class computer_vision():
         
         self.img_buffer = img_buffer
         
-        self.fast = cv.FastFeatureDetector_create()
-        self.fast.setThreshold(20)
+        self.fast, self.criteria, self.nCornersCols, self.nCornersRows, self.objp, self.checker_scale, self.checker_sqr_size = detection_setup(render)        
         
-        self.criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         self.render.taskMgr.add(self.pos_deter, 'Position Determination')
         
         self.render.cam_1.setPos(0, 0, 0.01)
@@ -33,13 +32,6 @@ class computer_vision():
         self.render.quad_model.setHpr(0, 0, 0)
         self.render.cam_1.reparentTo(self.render.quad_model)
 
-        self.criteria = (cv.TERM_CRITERIA_EPS + cv.TermCriteria_COUNT, 1, 0.0001) 
-        self.nCornersCols = 9
-        self.nCornersRows = 6
-        self.objp = np.zeros((self.nCornersCols*self.nCornersRows, 3), np.float32)
-        self.checker_scale = render.checker_scale
-        self.checker_sqr_size = render.checker_sqr_size
-        self.objp[:,:2] = (np.mgrid[0:self.nCornersCols, 0:self.nCornersRows].T.reshape(-1,2))*self.checker_scale*self.checker_sqr_size
 
         
     def draw(self, img, corners, imgpts):
@@ -68,7 +60,6 @@ class computer_vision():
                         ret, corners = cv.findChessboardCorners(img, (self.nCornersCols, self.nCornersRows),
                                                                 cv.CALIB_CB_ADAPTIVE_THRESH + cv.CALIB_CB_NORMALIZE_IMAGE + cv.CALIB_CB_FILTER_QUADS+ cv.CALIB_CB_FAST_CHECK)
                         if ret:
-                            # corners = cv.cornerSubPix(gray,corners,(11,11),(-1,-1),self.criteria)
                             ret, rvecs, tvecs = cv.solvePnP(self.objp, corners, self.mtx, self.dist)
                             if ret:
     
@@ -76,8 +67,7 @@ class computer_vision():
                                 imgpts, jac = cv.projectPoints(axis, rvecs, tvecs, self.mtx, self.dist)
                                 imgpts = imgpts.astype(np.int)
         
-                                real_state = np.concatenate((self.quad_env.state[0:5:2], self.quad_env.state[6:10]))
-                                # rvecs[2] *= -1 
+
                                 r = R.from_rotvec(rvecs.flatten()).inv() 
                                 trans = np.dot(r.as_matrix(), tvecs).flatten() 
                                 trans[0] *= -1
@@ -94,7 +84,6 @@ class computer_vision():
                                     self.vel_img.append((trans - self.image_pos)/(self.quad_env.t_step*(task.frame-self.task_frame_ant)))
                                     self.vel_sens.append(self.quad_sens.velocity_t0)
                                     iv_var = np.mean(np.var(self.vel_img, axis = 0))
-                                    vs_var = np.mean(np.var(self.vel_sens, axis = 0))
                                     if iv_var < 0.1 and len(self.vel_img)> 50:
                                         self.quad_sens.velocity_t0 = self.quad_sens.velocity_t0*0.9+self.vel_img[-1]*0.1
                                 self.image_pos = trans
