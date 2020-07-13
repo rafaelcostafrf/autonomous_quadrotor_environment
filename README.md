@@ -1,6 +1,7 @@
 # Quadrotor mathematical environment and 3D animation using python
 
-How to use the 3D environment:
+## How to use the 3D environment:
+
 	1. Download the whole repository
 	2. Install the following packages:
 		Panda3d 1.10.6.post2
@@ -23,7 +24,8 @@ How to use the 3D environment:
 
 	
 
-How to use the mathematical environment:
+## How to use the mathematical environment:
+
 	1. Download environment/quadrotor_env.py
 	2. Install the following packages:
 		Numpy 1.19.0
