@@ -9,7 +9,7 @@
 		Numpy 1.19.0
 		Scipy 1.5.0
 		PyTorch 1.5.1
-	3. Run Main.py (does not work on Spyder console)
+	3. Run ./Main.py (does not work on Spyder console)
 	4. Basic Controls:
 		C - Changes camera
 		WASD - Changes external camera angle
@@ -26,9 +26,9 @@
 
 ## How to use the mathematical environment:
 
-	1. Download environment/quadrotor_env.py
+	1. Download ./environment/quadrotor_env.py
 	2. Install the following packages:
 		Numpy 1.19.0
 		Scipy 1.5.0
-	3. Some examples in Exemplo - Ambiente.ipynb 
+	3. Some examples in ./examples
 	
