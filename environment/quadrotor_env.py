@@ -1,12 +1,9 @@
 from scipy import integrate
 import numpy as np
 from environment.quaternion_euler_utility import euler_quat, quat_euler, deriv_quat, quat_rot_mat
-from collections import deque
 from numpy.linalg import norm
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import pyplot as plt
-import vpython as visual
-import PIL.ImageGrab
 from scipy.spatial.transform import Rotation
 """""
 QUADROTOR ENVIRONMENT
@@ -76,8 +73,6 @@ TR_P = [100, 10]
 class quad():
 
     def __init__(self, t_step, n, euler=0, direct_control=0, T=1):
-        current = visual.canvas.get_selected()
-        current.delete()
         
         """"
         inputs:
