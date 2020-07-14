@@ -26,9 +26,8 @@
 
 ## How to use the mathematical environment:
 
-	1. Download ./environment/quadrotor_env.py
+	1. Download ./environment
 	2. Install the following packages:
 		Numpy 1.19.0
 		Scipy 1.5.0
 	3. Some examples in ./examples
-	
