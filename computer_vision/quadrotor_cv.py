@@ -1,12 +1,13 @@
 import cv2 as cv
-import numpy as np
-import time
 from collections import deque
+import time
+import numpy as np
 from scipy.spatial.transform import Rotation as R
 from computer_vision.detector_setup import detection_setup
 
+
 class computer_vision():
-    def __init__(self, render, quad_model, quad_env, quad_sens, quad_pos, img_buffer, camera_cal, mydir, IMG_POS_DETER):
+    def __init__(self, render, quad_model, quad_env, quad_sens, quad_pos, cv_cam, camera_cal, mydir, IMG_POS_DETER):
         
         self.mtx = camera_cal.mtx
         self.dist = camera_cal.dist
@@ -20,20 +21,26 @@ class computer_vision():
         self.vel_img = deque(maxlen=100)
         self.render = render  
         
-        self.img_buffer = img_buffer
+        self.fast, self.criteria, self.nCornersCols, self.nCornersRows, self.objp, self.checker_scale, self.checker_sqr_size = detection_setup(render)  
         
-        self.fast, self.criteria, self.nCornersCols, self.nCornersRows, self.objp, self.checker_scale, self.checker_sqr_size = detection_setup(render)        
-        
-        self.render.taskMgr.add(self.pos_deter, 'Position Determination')
-        
-        self.render.cam_1.setPos(0, 0, 0.01)
-        self.render.cam_1.lookAt(0, 0, 0)
         self.render.quad_model.setPos(0, 0, 0)
         self.render.quad_model.setHpr(0, 0, 0)
-        self.render.cam_1.reparentTo(self.render.quad_model)
-
-
         
+        self.cv_cam = cv_cam
+        self.cv_cam.cam.setPos(0, 0, 0.01)
+        self.cv_cam.cam.lookAt(0, 0, 0)
+        self.cv_cam.cam.reparentTo(self.render.quad_model)
+
+        self.render.taskMgr.add(self.pos_deter, 'position determination algorithm')
+    
+    def img_show(self, task):
+        if task.frame % self.cv_cam.frame_int == 1:           
+            ret, image = self.cv_cam.get_image()
+            if ret:
+                cv.imshow('Drone Camera',image)
+                cv.waitKey(1)
+        return task.cont
+    
     def draw(self, img, corners, imgpts):
         corner = tuple(corners[0].ravel())
         img = cv.line(img, corner, tuple(imgpts[0].ravel()), (255, 0, 0), 1)
@@ -49,8 +56,8 @@ class computer_vision():
             self.vel_img = deque(maxlen=100)
         if self.IMG_POS_DETER:
             time_iter = time.time()
-            if task.frame % 10 == 0:           
-                ret, image = self.img_buffer.get_image()
+            if task.frame % 10 == 1:           
+                ret, image = self.cv_cam.get_image()
                 if ret:
                     img = cv.cvtColor(image, cv.COLOR_RGBA2BGR)
                     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
@@ -58,7 +65,7 @@ class computer_vision():
                     corner_good = self.fast.detect(fast_gray)
                     if len(corner_good) > 50:
                         ret, corners = cv.findChessboardCorners(img, (self.nCornersCols, self.nCornersRows),
-                                                                cv.CALIB_CB_ADAPTIVE_THRESH + cv.CALIB_CB_NORMALIZE_IMAGE + cv.CALIB_CB_FILTER_QUADS+ cv.CALIB_CB_FAST_CHECK)
+                                                                cv.CALIB_CB_ADAPTIVE_THRESH + cv.CALIB_CB_NORMALIZE_IMAGE + cv.CALIB_CB_FILTER_QUADS + cv.CALIB_CB_FAST_CHECK)
                         if ret:
                             ret, rvecs, tvecs = cv.solvePnP(self.objp, corners, self.mtx, self.dist)
                             if ret:

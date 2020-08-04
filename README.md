@@ -1,4 +1,4 @@
-# Quadrotor mathematical environment and 3D animation using python
+# UAVS 3D simulation and visualization using python
 
 ## How to use the 3D environment:
 
@@ -13,21 +13,10 @@
 	4. Basic Controls:
 		C - Changes camera
 		WASD - Changes external camera angle
-		RF - Changes external camera distance
+		QE - Changes external camera distance
+    R - Resets Camera
 	5. Controller:
 		Machine Learning Based Controller, trained by a PPO algorithm. 
 	6. Estimation Algorithm:
-		MEMS - Simulates an onboard IMU, with gyroscope, accelerometer and magnetometer. 
-			TRIAD algorithm is used to estimate attitude, retangular integrator is used to estimate position. 
-		Hybrid - MEMS + Camera Estimation Algorithm
+		MEMS - Simulates an onboard IMU, with gyroscope, accelerometer and magnetometer. TRIAD algorithm is used to estimate attitude, retangular integrator is used to estimate position. 
 		True State - Uses the exact simulated state.
-
-	
-
-## How to use the mathematical environment:
-
-	1. Download ./environment
-	2. Install the following packages:
-		Numpy 1.19.0
-		Scipy 1.5.0
-	3. Some examples in ./examples

@@ -6,6 +6,7 @@ from environment.quadrotor_env import quad, sensor
 from environment.quaternion_euler_utility import deriv_quat
 from environment.controller.model import ActorCritic
 from environment.controller.dl_auxiliary import dl_in_gen
+from mission_control.mission_control import mission
 
 ## PPO SETUP ##
 time_int_step = 0.01
@@ -14,13 +15,13 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class quad_position():
     
-    def __init__(self, render, quad_model, prop_models, EPISODE_STEPS, REAL_CTRL, IMG_POS_DETER, ERROR_AQS_EPISODES, ERROR_PATH, HOVER):
+    def __init__(self, render, quad_model, prop_models, EPISODE_STEPS, REAL_CTRL, ERROR_AQS_EPISODES, ERROR_PATH, HOVER, M_C):
         self.REAL_CTRL = REAL_CTRL
-        self.IMG_POS_DETER = IMG_POS_DETER
+        self.IMG_POS_DETER = False
         self.ERROR_AQS_EPISODES = ERROR_AQS_EPISODES
         self.ERROR_PATH = ERROR_PATH
         self.HOVER = HOVER
-        
+        self.M_C = M_C
         self.quad_model = quad_model
         self.prop_models = prop_models
         self.episode_n = 1
@@ -50,23 +51,13 @@ class quad_position():
         n_parameters = sum(p.numel() for p in self.policy.parameters())
         print('Neural Network Number of Parameters: %i' %n_parameters)
         
-        
-    def error_aquisition(self):
-        self.control_error = np.concatenate((-self.env.state[0:5:2], np.array([1, 0, 0, 0])-self.env.state[6:10]))
-        self.estimation_error = np.concatenate((self.pos_accel-self.env.state[0:5:2], self.quaternion_gyro-self.env.state[6:10]))           
-        self.control_error_list.append(self.control_error)
-        self.estimation_error_list.append(self.estimation_error)
-        
-        if self.env.done:
-            error_contr_final = np.array(self.control_error_list)                
-            error_est_final = np.array(self.estimation_error_list)
-            string = '_True_State.npz' if self.REAL_CTRL else ('_Hybrid.npz' if self.IMG_POS_DETER else '_MEMS.npz')      
-            save_str = self.ERROR_PATH+'episode_'+str(self.episode_n)+string                
-            np.savez(save_str, error_contr_final, error_est_final)
-
-        if self.episode_n == self.ERROR_AQS_EPISODES:
-            sys.exit()
-        
+        #MISSION CONTROL SETUP
+        if self.M_C:
+            self.mission_control = mission(time_int_step)
+            self.mission_control.gen_trajectory(50, np.array([10, 0, 0]),)
+        else:
+            self.error_mission = np.zeros(14)
+            
     def drone_position_task(self, task):
         if task.frame == 0 or self.env.done:
             self.control_error_list = []
@@ -96,17 +87,19 @@ class quad_position():
             self.pos_gps, self.vel_gps = self.sensor.gps()
             self.quaternion_triad, _ = self.sensor.triad()
             self.time_total_sens.append(time.time() - time_iter)
-            self.error_aquisition()
-            
+            if self.M_C:
+                self.error_mission = self.mission_control.get_error(self.env.i*self.env.t_step)
+            else:
+                self.error_mission = np.zeros(14)
             #SENSOR CONTROL
             pos_vel = np.array([self.pos_accel[0], self.velocity_accel[0],
                                 self.pos_accel[1], self.velocity_accel[1],
                                 self.pos_accel[2], self.velocity_accel[2]])
 
             if self.REAL_CTRL:
-                self.network_in = self.aux_dl.dl_input(states, [action])
+                self.network_in = self.aux_dl.dl_input(states-self.error_mission, [action])
             else:
-                states_sens = [np.concatenate((pos_vel, self.quaternion_gyro, quaternion_vel))]                
+                states_sens = [np.concatenate((pos_vel, self.quaternion_gyro, quaternion_vel))]-self.error_mission                  
                 self.network_in = self.aux_dl.dl_input(states_sens, [action])
             
             pos = self.env.state[0:5:2]

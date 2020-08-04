@@ -6,7 +6,7 @@ import numpy as np
 
 class menu():
     
-    def __init__(self, env, drone, sensor, cv):
+    def __init__(self, env, drone, sensor, cv, camera):
         # Add some text
         frame = DirectFrame(frameSize = (-0.27,0.27,-0.30,0.26), frameColor = (0.35, 0.35, 0.35, 0.55), pos = (1.5, 0, 0))
         self.drone = drone
@@ -22,6 +22,7 @@ class menu():
         textObject = OnscreenText(text=output, pos=(1.5, -0.18), scale=0.04,
                                   fg=(1, 1, 1, 1), shadow=(0,0,0,1), align=TextNode.ACenter,
                                   mayChange=1)
+        self.camera = camera
         
         # Callback function to set  text
         def true_state():
@@ -57,7 +58,7 @@ class menu():
                                   fg=(1, 1, 1, 1), shadow=(0,0,0,1), align=TextNode.ACenter,
                                   mayChange=1)
         if task.frame % 30 == 1:
-            error = self.drone.control_error
+            error = np.array([1,1])
             if len(error) > 1:
                 error = np.sum(np.square(error))
             else:
