@@ -3,18 +3,19 @@ import numpy as np
 from computer_vision.detector_setup import detection_setup
 
 class calibration():
-    def __init__(self, render, img_buffer):
-        self.img_buffer = img_buffer
+    def __init__(self, render, cv_cam):
+        self.cam = cv_cam
         self.render = render
-        self.fast, self.criteria, self.nCornersCols, self.nCornersRows, self.objp, self.checker_scale, self.checker_sqr_size = detection_setup(render)      
+        self.fast, self.criteria, self.nCornersCols, self.nCornersRows, self.objp, self.checker_scale, self.checker_sqr_size = detection_setup(render) 
+        self.path = './config/camera_calibration_' + self.cam.name + '.npz'
         try: 
-            npzfile = np.load('./config/camera_calibration.npz')
+            npzfile = np.load(self.path)
             self.mtx = npzfile[npzfile.files[0]]
             self.dist = npzfile[npzfile.files[1]]
             self.calibrated = True
             print('Calibration File Loaded')
         except:
-            print('Could Not Load Calibration File, Calibrating... ')
+            print('Could Not Load Calibration File for camera ' + self.cam.name +', Calibrating... ')
             self.render.taskMgr.add(self.calibrate, 'Camera Calibration')   
             self.calibrated = False
             self.render.cam_pos = []
@@ -26,15 +27,13 @@ class calibration():
             rand_pos[2] = np.random.random()*3+2
             cam_pos = tuple(rand_pos)
             
-            self.render.cam.reparentTo(self.render.render)
-            self.render.cam_1.reparentTo(self.render.render)
-            self.render.cam.setPos(*cam_pos)
-            self.render.cam.lookAt(self.render.checker)
-            self.render.cam_1.setPos(*cam_pos)
-            self.render.cam_1.lookAt(self.render.checker)
+            self.cam.cam.reparentTo(self.render.render)
+            self.cam.cam.setPos(*cam_pos)
+            self.cam.cam.lookAt(self.render.checker)
+
             self.render.quad_model.setPos(10,10,10)
             
-            ret, image = self.img_buffer.get_image()
+            ret, image = self.cam.get_image(target_frame=False)
             if ret:
                 img = cv.cvtColor(image, cv.COLOR_RGBA2BGR)
                 self.gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)                
@@ -57,17 +56,13 @@ class calibration():
                     cv.imshow('img', dst)
                     self.mtx = mtx
                     self.dist = dist
-                    print('Calibration Complete')
                     self.calibrated = True
-                    np.savez('./config/camera_calibration', mtx, dist)
+                    np.savez(self.path, mtx, dist)
                     print('Calibration File Saved')
-                    print('Calibration Complete! Running the Algorithm...')
-                    self.render.cam.reparentTo(self.render.render)
-                    self.render.cam.setPos(self.render.cam_neutral_pos)
+                    print(self.cam.name + ' calibration Complete!')
                     self.render.quad_model.setPos(0, 0, 0)
-                    self.render.cam_1.setPos(0,0,0.01)
-                    self.render.cam_1.reparentTo(self.render.quad_model)
-                    self.render.run_setup()
+                    self.cam.cam.setPos(0,0,0.01)
+                    self.cam.cam.reparentTo(self.render.quad_model)
                     cv.destroyWindow('img')
                     return task.done
             return task.cont
