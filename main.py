@@ -49,16 +49,19 @@ DESCRIÇÃO:
 """
 
 # REAL STATE CONTROL ELSE BY ESTIMATION METHODS
-REAL_CTRL = False
+REAL_CTRL = True
 
 # HOVER FLIGHT ELSE RANDOM INITIAL STATE
 HOVER = True
 
 #IMAGE POSITION ESTIMATION
-IMG_POS_DETER = True
+IMG_POS_DETER = False
+
+#MISSION CONTROL
+M_C = True
 
 # NUMBER OF EPISODE TIMESTEPS 
-EPISODE_STEPS = 3000
+EPISODE_STEPS = 2000
 
 # TOTAL NUMBER OF EPISODES
 ERROR_AQS_EPISODES = 40
@@ -73,8 +76,7 @@ mydir = Filename.fromOsSpecific(mydir).getFullpath()
 frame_interval = 10
 cam_names = ('cam_1', )
 
-#MISSION CONTROL
-M_C = True
+
 
 class MyApp(ShowBase):
     def __init__(self):
