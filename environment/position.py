@@ -2,6 +2,7 @@ import torch
 import time
 import numpy as np
 import sys
+import matplotlib.pyplot as plt
 from environment.quadrotor_env import quad, sensor
 from environment.quaternion_euler_utility import deriv_quat
 from environment.controller.model import ActorCritic
@@ -28,8 +29,13 @@ class quad_position():
         self.time_total_sens = []
         self.T = T
         
+        self.log_state = []
+        self.log_target = []
+        self.log_input = []
+        
         self.render = render
         self.render.taskMgr.add(self.drone_position_task, 'Drone Position')
+        self.render.taskMgr.add(self.drone_logger_task, 'Logging Task')
         
         # ENV SETUP
         self.env = quad(time_int_step, EPISODE_STEPS, direct_control=1, T=T)
@@ -50,16 +56,63 @@ class quad_position():
             
         n_parameters = sum(p.numel() for p in self.policy.parameters())
         print('Neural Network Number of Parameters: %i' %n_parameters)
-        
-        #MISSION CONTROL SETUP
-        if self.M_C:
-            self.mission_control = mission(time_int_step)
-            self.mission_control.gen_trajectory(50, np.array([10, 0, 0]),)
-        else:
-            self.error_mission = np.zeros(14)
+    
+    def drone_logger_task(self, task):
+        self.log_state.append(self.env.state)    
+        self.log_target.append(self.error_mission)
+        self.log_input.append(self.env.w.flatten())
+        if self.env.done:
+            plt.close('all')
+            self.log_state = np.array(self.log_state)
+            self.log_target = np.array(self.log_target)
+            self.log_input = np.array(self.log_input)
+            y = np.transpose(self.log_state)
+            z = np.transpose(self.log_target)
+            in_log = np.transpose(self.log_input)
+            x = np.arange(0,len(self.log_state),1)
+            labels = np.array(['x', 'vx', 'y', 'vy', 'z', 'vz', 'tx', 'tvx',  'ty', 'tvy',  'tz', 'tvz', 'w1', 'w2', 'w3', 'w4'])
+            line_styles = np.array(['-', '--', '-', '--', '-', '--'])
+            line_styles_z = np.array(['dotted', 'dashdot', 'dotted', 'dashdot', 'dotted', 'dashdot'])
             
+            # POSISIONS
+            plt.figure("Position")
+            for data, line_style in zip(y[0:5:2, :], line_styles[0:5:2]):
+                plt.plot(x, data, ls=line_style)
+            for data, line_style in zip(z[0:5:2, :], line_styles_z[0:5:2]):
+                plt.plot(x, data, ls=line_style)
+            plt.legend(labels[0:11:2])
+            
+            
+            # VELOCITIES
+            plt.figure("Velocity")
+            for data, line_style in zip(y[1:6:2, :], line_styles[1:6:2]):
+                plt.plot(x, data, ls=line_style)
+            for data, line_style in zip(z[1:6:2, :], line_styles_z[1:6:2]):
+                plt.plot(x, data, ls=line_style)
+            plt.legend(labels[1:12:2])
+            
+            # ANGULAR PROP VELOCITY
+            plt.figure("Prop Angular Velocity")
+            for data in in_log:
+                plt.plot(x, data)
+            plt.legend(labels[-4::])
+            plt.show()
+            
+            self.log_state = []
+            self.log_target = []
+        return task.cont
+        
     def drone_position_task(self, task):
         if task.frame == 0 or self.env.done:
+            #MISSION CONTROL SETUP
+            if self.M_C:
+                self.mission_control = mission(time_int_step)
+                # self.mission_control.sin_trajectory(2000, 1, np.array([0, 0, 0]), np.array([1, 1, 1]))
+                self.mission_control.spiral_trajectory(3000, 0.2, 0.2, 0.5, np.array([0,0,0]))
+                # self.mission_control.gen_trajectory(2, np.array([4, -5, 3]))
+                self.error_mission = np.zeros(14)
+            else:
+                self.error_mission = np.zeros(14)
             self.control_error_list = []
             self.estimation_error_list = []
             if self.HOVER:
@@ -78,6 +131,7 @@ class quad_position():
             progress = self.env.i/self.env.n*100
             print(f'Progress: {progress:.2f}%', end='\r')
             action = self.policy.actor(torch.FloatTensor(self.network_in).to(device)).cpu().detach().numpy()
+            self.action_log = action
             states, _, done = self.env.step(action)
             time_iter = time.time()
             _, self.velocity_accel, self.pos_accel = self.sensor.accel_int()
