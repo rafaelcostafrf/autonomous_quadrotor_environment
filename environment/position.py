@@ -107,8 +107,8 @@ class quad_position():
             #MISSION CONTROL SETUP
             if self.M_C:
                 self.mission_control = mission(time_int_step)
-                # self.mission_control.sin_trajectory(2000, 1, np.array([0, 0, 0]), np.array([1, 1, 1]))
-                self.mission_control.spiral_trajectory(3000, 0.2, 0.2, 0.5, np.array([0,0,0]))
+                self.mission_control.sin_trajectory(2000, 0.1, np.array([0, 0, 0]), np.array([0, 0, 1]))
+                # self.mission_control.spiral_trajectory(2000, 1, 0.1, 1, np.array([0,0,0]))
                 # self.mission_control.gen_trajectory(2, np.array([4, -5, 3]))
                 self.error_mission = np.zeros(14)
             else:
