@@ -25,7 +25,7 @@ class mission():
                 for j in range(3):
                     self.trajectory[i+1, j] = self.trajectory[i, j] + self.velocity[i, j]*self.time_step
 
-    def sin_trajectory(self, steps, circular_rate, center, axis):
+    def sin_trajectory(self, steps, circular_rate, ascent_rate, center, axis):
         self.trajectory_step = 0
         self.trajectory_total_steps = steps
         self.trajectory = np.zeros([steps, 3])
@@ -35,6 +35,8 @@ class mission():
             a = step*circular_rate*self.time_step
             self.trajectory[step, :] = center + np.sin(a) * axis
             self.velocity[step, :] = np.cos(a) * circular_rate * axis
+            self.trajectory[step, 2] = self.trajectory[step-1, 2] + ascent_rate*self.time_step
+            self.velocity[step, 2] = ascent_rate
         print(self.trajectory)
         print(self.velocity)
             
@@ -49,7 +51,7 @@ class mission():
             x = np.cos(a)*radius
             y = np.sin(a)*radius
             z = step*rate*self.time_step
-            self.trajectory[step, :] = center + np.array([x, y, z])
+            self.trajectory[step, :] = center + np.array([x, y, z]) - np.array([radius, 0, 0])
             self.velocity[step, :] = np.array([-np.sin(a)*circular_rate*radius, np.cos(a)*circular_rate*radius,  rate])
             
     def get_error(self, time):

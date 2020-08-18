@@ -3,6 +3,7 @@ import time
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 from environment.quadrotor_env import quad, sensor
 from environment.quaternion_euler_utility import deriv_quat
 from environment.controller.model import ActorCritic
@@ -69,47 +70,90 @@ class quad_position():
             y = np.transpose(self.log_state)
             z = np.transpose(self.log_target)
             in_log = np.transpose(self.log_input)
-            x = np.arange(0,len(self.log_state),1)
-            labels = np.array(['x', 'vx', 'y', 'vy', 'z', 'vz', 'tx', 'tvx',  'ty', 'tvy',  'tz', 'tvz', 'w1', 'w2', 'w3', 'w4'])
-            line_styles = np.array(['-', '--', '-', '--', '-', '--'])
+            x = np.arange(0,len(self.log_state),1)*time_int_step
+            
+            labels = np.array([['x', r'$x_t$'],     
+                               ['y', r'$y_t$'], 
+                               ['z', r'$z_t$'],
+                               [r'$\dot{x}$', r'$\dot{x_t}$'],
+                               [r'$\dot{y}$', r'$\dot{y_t}$'],
+                               [r'$\dot{z}$', r'$\dot{z_t}$']])
+            
+            labels_ang = np.array([r'$w_1$', r'$w_2$', r'$w_3$', r'$w_4$'])
+                        
+            line_style = np.array(['-', '--'])
+            
             line_styles_z = np.array(['dotted', 'dashdot', 'dotted', 'dashdot', 'dotted', 'dashdot'])
+            
+            
             
             # POSISIONS
             plt.figure("Position")
-            for data, line_style in zip(y[0:5:2, :], line_styles[0:5:2]):
-                plt.plot(x, data, ls=line_style)
-            for data, line_style in zip(z[0:5:2, :], line_styles_z[0:5:2]):
-                plt.plot(x, data, ls=line_style)
-            plt.legend(labels[0:11:2])
             
-            
-            # VELOCITIES
+            for i in range(3):
+                plt.subplot(311+i)
+                plt.plot(x, y[0+2*i, :], ls = '-')
+                plt.plot(x, z[0+2*i, :], ls = '--')
+                plt.legend(labels[i])
+                if i == 2:
+                    plt.xlabel('time (s)')
+                if i == 1:
+                    plt.ylabel('position (m)')
+                plt.grid(True)
+                
             plt.figure("Velocity")
-            for data, line_style in zip(y[1:6:2, :], line_styles[1:6:2]):
-                plt.plot(x, data, ls=line_style)
-            for data, line_style in zip(z[1:6:2, :], line_styles_z[1:6:2]):
-                plt.plot(x, data, ls=line_style)
-            plt.legend(labels[1:12:2])
             
+            for i in range(3):
+                plt.subplot(311+i)
+                plt.plot(x, y[1+2*i, :], ls = '-')
+                plt.plot(x, z[1+2*i, :], ls = '--')
+                plt.legend(labels[3+i])
+                if i == 2:
+                    plt.xlabel('time (s)')
+                if i == 1:
+                    plt.ylabel('velocity (m/s)')
+                plt.grid(True)
+                        
             # ANGULAR PROP VELOCITY
-            plt.figure("Prop Angular Velocity")
-            for data in in_log:
-                plt.plot(x, data)
-            plt.legend(labels[-4::])
+
+            fig = plt.figure("Proppeler Angular Velocity")
+            fig.text(0.5, 0.04, 'time (s)', ha='center')
+            fig.text(0.04, 0.5, 'velocity (rad/s)', va='center', rotation='vertical')
+            for i, data in enumerate(in_log):
+                plt.subplot(411+i)
+                plt.plot(x, data, label = labels_ang[i])
+                plt.grid(True)                
+                plt.legend()
+            
+            fig = plt.figure('3D plot')
+            
+            ax = fig.gca(projection='3d')        
+            
+            ax.plot(y[0, :], y[2, :], y[4, :], label = 'Position')
+            ax.plot(z[0, :], z[2, :], z[4, :], label = 'Target', ls = '--')
+            # ax.set(xlim=(-1.2,1.2), ylim=(-1.2,1.2), zlim=(0,3), )
+            ax.set_xlabel('x (m)')
+            ax.set_ylabel('y (m)')
+            ax.set_zlabel('z (m)')
+            plt.legend()
             plt.show()
             
             self.log_state = []
             self.log_target = []
+            self.log_input = []
         return task.cont
+
         
+    
+    
     def drone_position_task(self, task):
         if task.frame == 0 or self.env.done:
             #MISSION CONTROL SETUP
             if self.M_C:
                 self.mission_control = mission(time_int_step)
-                self.mission_control.sin_trajectory(2000, 0.1, np.array([0, 0, 0]), np.array([0, 0, 1]))
-                # self.mission_control.spiral_trajectory(2000, 1, 0.1, 1, np.array([0,0,0]))
-                # self.mission_control.gen_trajectory(2, np.array([4, -5, 3]))
+                # self.mission_control.sin_trajectory(2000, 1, 0.1, np.array([0, 0, 0]), np.array([1, 1, 0]))
+                self.mission_control.spiral_trajectory(2000, 0.25, 0.314, 2.5, np.array([0,0,0]))
+                # self.mission_control.gen_trajectory(2, np.array([4, -5, 3]), np.array([0.1, 0.2, 0.3]))
                 self.error_mission = np.zeros(14)
             else:
                 self.error_mission = np.zeros(14)
