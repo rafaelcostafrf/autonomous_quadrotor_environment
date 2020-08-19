@@ -1,8 +1,12 @@
+import sys
+sys.path.append('/home/rafael/mestrado/quadrotor_environment/')
 import torch
 import torch.nn as nn
 from torch.distributions import MultivariateNormal
 import numpy as np
-from quadrotor_env import quad, render, animation
+
+from environment.quadrotor_env import quad, plotter
+from dl_auxiliary import dl_in_gen
 from model import ActorCritic
 
 """
@@ -73,14 +77,14 @@ class PPO:
             rewards.insert(0, discounted_reward)
         
         # Normalizing the rewards:
-        rewards = torch.tensor(rewards).to(device)
+        rewards = torch.tensor(rewards, dtype=torch.float32).to(device)
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
         
         # convert list to tensor
         old_states = torch.squeeze(torch.stack(memory.states).to(device), 1).detach()
         old_actions = torch.squeeze(torch.stack(memory.actions).to(device), 1).detach()
         old_logprobs = torch.squeeze(torch.stack(memory.logprobs), 1).to(device).detach()
-        
+               
         # Optimize policy for K epochs:
         for _ in range(self.K_epochs):
             # Evaluating old actions and values :
@@ -105,22 +109,23 @@ class PPO:
 
 
 
-def evaluate(env,agent,plotter,eval_steps=10):
+def evaluate(env, agent, plotter, eval_steps=10):
     n_solved = 0
     rewards = 0
     time_steps = 0
     for i in range(eval_steps):
-        state = env.reset()
+        state, action = env.reset()
         plotter.clear()
         done = False
         while True:
             time_steps += 1
-            action = agent.policy.actor(torch.FloatTensor(state).to(device)).cpu().detach().numpy()
+            network_in = aux_dl.dl_input(state, action)    
+            action = agent.policy.actor(torch.FloatTensor(network_in).to(device)).cpu().detach().numpy()  
             state, reward, done = env.step(action)
+            action = np.array([action])
             rewards += reward
             if i == eval_steps-1:
-                plot_state = np.concatenate((env.state[0:5:2],env.ang,action))
-                plotter.add(env.i*0.01,plot_state)
+                plotter.add()
             if done:
                 n_solved += env.solved
                 break
@@ -152,12 +157,15 @@ betas = (0.9, 0.999)
 DEBUG = 0
 
 # creating environment
-env = quad(time_int_step, max_timesteps, euler=0, direct_control=1, deep_learning=1, T=T, debug=0)
-state_dim = env.deep_learning_in_size
+env = quad(time_int_step, max_timesteps, euler=0, direct_control=1, T=T)
+state_dim = 90
 print_states = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 plot_labels = ['x', 'y', 'z', 'phi', 'theta', 'psi', 'f1', 'f2', 'f3', 'f4']
 line_styles = ['-', '-', '-', '--', '--', '--', ':', ':', ':', ':',]
-plotter = render(print_states, plot_labels, line_styles, depth_plot_list=0, animate=0)
+plot = plotter(env, False)
+
+#creating reward logger
+file_logger = open('eval_reward_log.txt', 'a')
 
 if random_seed:
     print("Random Seed: {}".format(random_seed))
@@ -176,22 +184,32 @@ avg_length = 0
 time_step = 0
 solved_avg = 0
 eval_on_mean = True
+open('eval_reward_log.txt', 'w').close()
+
+#
+aux_dl = dl_in_gen(T, 13, 4)  
+aux_dl.reset()
+
+
 
 
 # training loop
 for i_episode in range(1, max_episodes+1):
-    state = env.reset()
-    for t in range(max_timesteps):
+    state, action = env.reset()
+    print('\rProgress: '+str(int((i_episode-1)%log_interval/log_interval*100))+'% ',end='\r')
+
+    for t in range(max_timesteps):        
+        network_in = aux_dl.dl_input(state, action)        
         t_since_last_plot += 1
         time_step +=1
         # Running policy_old:
-        action = ppo.select_action(state, memory)
+        action = ppo.select_action(network_in, memory)
         state, reward, done = env.step(action)
-    
+        action = np.array([action])
         # Saving reward and is_terminals:
         memory.rewards.append(reward)
         memory.is_terminals.append(done)
-        
+
         # update if its time
         if time_step % update_timestep == 0:
             ppo.update(memory)
@@ -209,12 +227,15 @@ for i_episode in range(1, max_episodes+1):
         
     # logging
     if i_episode % log_interval == 0:
-        reward_avg, time_avg, solved_avg = evaluate(env,ppo,plotter,20)
+        reward_avg, time_avg, solved_avg = evaluate(env, ppo, plot, 20)
         avg_length = int(avg_length/log_interval)
         running_reward = int((running_reward/log_interval))
-        print('Episode {} \t Avg length: {} \t Avg reward: {:.2f} \t Solved: {:.2f}'.format(i_episode, time_avg, reward_avg, solved_avg))
+        print('\rEpisode {} \t Avg length: {} \t Avg reward: {:.2f} \t Solved: {:.2f}'.format(i_episode, time_avg, reward_avg, solved_avg))
         running_reward = 0
         avg_length = 0
+        file_logger = open('eval_reward_log.txt', 'a')
+        file_logger.write(str(reward_avg)+'\n')
+        file_logger.close()
         
     # stop training if avg_reward > solved_reward
     if solved_avg > 0.95:
