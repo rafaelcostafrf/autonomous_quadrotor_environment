@@ -18,10 +18,10 @@ FURTHER DOCUMENTATION ON README.MD
 ## QUADROTOR PARAMETERS ##
 
 ## SIMULATION BOUNDING BOXES ##
-BB_POS = 5 *100
-BB_VEL = 10*100
+BB_POS = 5 
+BB_VEL = 10
 BB_CONTROL = 9
-BB_ANG = np.pi/2*100
+BB_ANG = np.pi/2
 
 # QUADROTOR MASS AND GRAVITY VALUE
 M, G = 1.03, 9.82
@@ -424,7 +424,7 @@ class quad():
         if current_state < target_state:
             self.reward = +500
             self.solved = 1
-            # self.done = True 
+            self.done = True 
             
         if self.i >= self.n and not self.done:
             self.reward = self.reward

@@ -20,7 +20,7 @@ class dl_in_gen():
         self.reset()
         
     def reset(self):
-        self.deep_learning_input = np.zeros(self.deep_learning_in_size)
+        self.deep_learning_input = np.zeros(self.deep_learning_in_size, dtype=np.float32)
         
     def dl_input(self, states, actions):
         

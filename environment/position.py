@@ -151,9 +151,9 @@ class quad_position():
             #MISSION CONTROL SETUP
             if self.M_C:
                 self.mission_control = mission(time_int_step)
-                # self.mission_control.sin_trajectory(2000, 1, 0.1, np.array([0, 0, 0]), np.array([1, 1, 0]))
-                self.mission_control.spiral_trajectory(2000, 0.25, 0.314, 2.5, np.array([0,0,0]))
-                # self.mission_control.gen_trajectory(2, np.array([4, -5, 3]), np.array([0.1, 0.2, 0.3]))
+                # self.mission_control.sin_trajectory(4000, 1, 0.1, np.array([0, 0, 0]), np.array([1, 1, 0]))
+                # self.mission_control.spiral_trajectory(4000, 0.25, np.pi/10, 2.5, np.array([0,0,0]))
+                self.mission_control.gen_trajectory(2, np.array([4, -5, 3]), )
                 self.error_mission = np.zeros(14)
             else:
                 self.error_mission = np.zeros(14)
