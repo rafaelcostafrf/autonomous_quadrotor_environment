@@ -4,7 +4,7 @@ class mission():
     def __init__(self, time_step):
         self.time_step = time_step
         
-    def gen_trajectory(self, steps, position, velocity=None, additive=None):
+    def gen_trajectory(self, total_timesteps, steps, position, velocity=None, additive=None):
         self.trajectory_step = 0
         self.trajectory_total_steps = steps
         if additive is None:
@@ -12,12 +12,16 @@ class mission():
         else:
             initial_state = additive
         
-        self.trajectory = np.zeros([steps, 3])
-        self.velocity = np.zeros([steps, 3])
+        self.trajectory = np.zeros([total_timesteps, 3])
+        self.velocity = np.zeros([total_timesteps, 3])
         
         if velocity is None:
             for i in range(3):
-                self.trajectory[:, i] = np.linspace(initial_state[i], position[i]+initial_state[i], steps)
+                self.trajectory[:steps, i] = np.linspace(initial_state[i], position[i]+initial_state[i], steps)
+                self.trajectory[steps:, i] = position[i]
+            for i in range(steps-1):
+                for j in range(3):
+                    self.velocity[i+1, j] = (self.trajectory[i+1, j] - self.trajectory[i, j])/self.time_step
         else:
             for i in range(3):
                 self.velocity[:, i] = np.linspace(0, velocity[i], steps)
@@ -34,13 +38,13 @@ class mission():
         for step in self.trajectory_timesteps:
             a = step*circular_rate*self.time_step
             self.trajectory[step, :] = center + np.sin(a) * axis
-            self.velocity[step, :] = np.cos(a) * circular_rate * axis
             self.trajectory[step, 2] = self.trajectory[step-1, 2] + ascent_rate*self.time_step
-            self.velocity[step, 2] = ascent_rate
-        print(self.trajectory)
-        print(self.velocity)
+        for i in range(steps-1):
+            for j in range(3):
+                self.velocity[i+1, j] = (self.trajectory[i+1, j] - self.trajectory[i, j])/self.time_step
+
             
-    def spiral_trajectory(self, steps, rate, circular_rate, radius, center):
+    def spiral_trajectory(self, zsteps, steps, rate, circular_rate, radius, center):
         self.trajectory_step = 0
         self.trajectory_total_steps = steps
         self.trajectory = np.zeros([steps, 3])
@@ -50,9 +54,15 @@ class mission():
             a = step*circular_rate*self.time_step
             x = np.cos(a)*radius
             y = np.sin(a)*radius
-            z = step*rate*self.time_step
+            if step>zsteps:
+                z = zsteps*rate*self.time_step
+            else:
+                z = step*rate*self.time_step
             self.trajectory[step, :] = center + np.array([x, y, z]) - np.array([radius, 0, 0])
-            self.velocity[step, :] = np.array([-np.sin(a)*circular_rate*radius, np.cos(a)*circular_rate*radius,  rate])
+        for i in range(steps-1):
+            for j in range(3):
+                self.velocity[i+1, j] = (self.trajectory[i+1, j] - self.trajectory[i, j])/self.time_step
+
             
     def get_error(self, time):
         if self.trajectory_step == self.trajectory_total_steps:
