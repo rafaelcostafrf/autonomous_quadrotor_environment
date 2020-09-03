@@ -14,7 +14,7 @@ from mission_control.mission_control import mission
 time_int_step = 0.01
 T = 5
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+test_n = 0
 class quad_position():
     
     def __init__(self, render, quad_model, prop_models, EPISODE_STEPS, REAL_CTRL, ERROR_AQS_EPISODES, ERROR_PATH, HOVER, M_C):
@@ -24,6 +24,8 @@ class quad_position():
         self.ERROR_PATH = ERROR_PATH
         self.HOVER = HOVER
         self.M_C = M_C
+        self.mission_str = 'point_tracking' if self.M_C == 1 else ('sinusoidal_tracking' if self.M_C == 2 else ('spiral_tracking' if self.M_C==3 else ''))
+        
         self.quad_model = quad_model
         self.prop_models = prop_models
         self.episode_n = 1
@@ -100,7 +102,9 @@ class quad_position():
                 if i == 1:
                     plt.ylabel('position (m)')
                 plt.grid(True)
-                
+            plt.savefig('./environment/controller/results/'+self.mission_str+'/position_'+str(test_n)+'.png')
+            
+            # VELOCITIES
             plt.figure("Velocity")
             
             for i in range(3):
@@ -113,9 +117,9 @@ class quad_position():
                 if i == 1:
                     plt.ylabel('velocity (m/s)')
                 plt.grid(True)
-                        
+            plt.savefig('./environment/controller/results/'+self.mission_str+'/velocities_'+str(test_n)+'.png')
+            
             # ANGULAR PROP VELOCITY
-
             fig = plt.figure("Proppeler Angular Velocity")
             fig.text(0.5, 0.04, 'time (s)', ha='center')
             fig.text(0.04, 0.5, 'velocity (rad/s)', va='center', rotation='vertical')
@@ -124,18 +128,20 @@ class quad_position():
                 plt.plot(x, data, label = labels_ang[i])
                 plt.grid(True)                
                 plt.legend()
+            plt.savefig('./environment/controller/results/'+self.mission_str+'/prop_angular_vel_'+str(test_n)+'.png')
             
-            fig = plt.figure('3D plot')
-            
-            ax = fig.gca(projection='3d')        
+            # 3D PLOT
+            fig = plt.figure('3D plot')            
+            ax = fig.gca(projection='3d')      
             
             ax.plot(y[0, :], y[2, :], y[4, :], label = 'Position')
-            ax.plot(z[0, :], z[2, :], z[4, :], label = 'Target', ls = '--')
+            ax.plot(z[0, :], z[2, :], z[4, :], label = 'Target', ls='--')
             # ax.set(xlim=(-1.2,1.2), ylim=(-1.2,1.2), zlim=(0,3), )
             ax.set_xlabel('x (m)')
             ax.set_ylabel('y (m)')
             ax.set_zlabel('z (m)')
             plt.legend()
+            plt.savefig('./environment/controller/results/'+self.mission_str+'/3D_plot_'+str(test_n)+'.png')
             plt.show()
             
             self.log_state = []
@@ -151,9 +157,13 @@ class quad_position():
             #MISSION CONTROL SETUP
             if self.M_C:
                 self.mission_control = mission(time_int_step)
-                # self.mission_control.sin_trajectory(4000, 1, 0.1, np.array([0, 0, 0]), np.array([1, 1, 0]))
-                # self.mission_control.spiral_trajectory(4000, 0.25, np.pi/10, 2.5, np.array([0,0,0]))
-                self.mission_control.gen_trajectory(2, np.array([4, -5, 3]), )
+                if self.M_C ==1:
+                    self.mission_control.gen_trajectory(5000, 3000, np.array([0, 0, 15]), )
+                elif self.M_C ==2:
+                    self.mission_control.sin_trajectory(4000, 0.3, 0.05, np.array([0, 0, 0]), np.array([1, 1, 0]))
+                else:
+                    self.mission_control.spiral_trajectory(4000, 5000, 0.3, np.pi/10, 3, np.array([0,0,0]))
+                
                 self.error_mission = np.zeros(14)
             else:
                 self.error_mission = np.zeros(14)

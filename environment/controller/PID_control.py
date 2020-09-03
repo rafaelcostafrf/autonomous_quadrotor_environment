@@ -1,60 +1,66 @@
 import numpy as np
+import sys
+sys.path.append('/home/rafael/mestrado/quadrotor_environment/')
+from environment.quadrotor_env import quad, plotter
 
 class pid_control():
-    def __init__(self, timestep, P_att, I_att, D_att, P_pos, I_pos, D_pos):
-        self.P_att = P_att
-        self.I_att = I_att
-        self.D_att = D_att
-        
-        self.P_pos = P_pos
-        self.I_pos = I_pos
-        self.D_pos = D_pos
-        
-        
-        self.ts = timestep
-        self.theta_accum_error = 0 
-        self.phi_accum_error = 0 
-        self.psi_accum_error = 0 
+    def __init__(self):
+        self.m_t = 1.03
         self.g = 9.82
         
-    def pid_int(self, pos, vel, pos_target, vel_target, accum_error, P, I, D):
-        return P*(pos_target - pos)+I*(accum_error)+D*(vel_target - vel)   
+        P, I, D = 1, 0, 0
+        P_t, I_t, D_t = 1, 0, 0
+        
+        self.pid_phi = pid(P, I, D)
+        self.pid_theta = pid(P, I, D)
+        self.pid_psi = pid(P, I, D)
+        
+        self.pid_x = pid(P_t, I_t, D_t)
+        self.pid_y = pid(P_t, I_t, D_t)
+        self.pid_z = pid(P_t, I_t, D_t)
+        
+    def lower_control(self, x, dx, y, dy, z, dz, x_d, dx_d, y_d, dy_d, z_d, dz_d):
+        a_x = self.pid_x.pid(x, x_d, dx, dx_d)
+        a_y = self.pid_y.pid(y, y_d, dy, dy_d)
+        a_z = self.pid_z.pid(z, z_d, dz, dz_d)        
+        theta_d = np.arctan2(a_x, a_z+self.g)
+        phi_d = np.arctan2(-a_y*np.cos(theta_d), a_z+self.g)
+        U_1 = self.m_t*(a_z+self.g)/np.cos(theta_d)/np.cos(phi_d)
+        return theta_d, phi_d, U_1
+        
+    def upper_control(self, phi, dphi, theta, dtheta, psi, dpsi, phi_d, dphi_d, theta_d, dtheta_d, psi_d, dpsi_d):
+        c_phi = self.pid_phi.pid(phi, phi_d, dphi, dphi_d)
+        c_theta = self.pid_theta.pid(theta, theta_d, dtheta, dtheta_d)
+        c_psi = self.pid_psi.pid(psi, psi_d, dpsi, dpsi_d)
+        return c_phi, c_theta, c_psi
+        
+class pid():
+    def __init__(self, P, I, D, timestep=0.01):
+        self.ix = 0
+        self.p = P
+        self.i = I
+        self.d = D
+        self.ts = timestep
+        
+    def pid(self, x, dx, x_d, dx_d=0):
+        self.ix = self.ix+(x_d-x)*self.ts
+        control = self.p*(x_d-x)+self.d*(dx_d-dx)-self.i*(self.ix)
+        return control
     
-    def lower_control(self, phi, dphi, theta, dtheta, psi, dpsi, z, dz, phi_target, theta_target, psi_target, z_target):
-        dtheta_target = 0
-        dphi_target = 0
-        dpsi_target = 0
-        dz_target = 0
-        self.theta_accum_error += theta_target-theta
-        self.phi_accum_error += phi_target-phi
-        self.psi_accum_error += psi_target-psi
-        
-        u1 = (self.pid_int(z, dz, z_target, dz_target, self.z_accum_error, self.P_pos, self.I_pos, self.D_pos)+self.g)*np.cos(phi)*np.cos(psi)
-        
-        u2 = self.pid_int(theta, dtheta, theta_target, dtheta_target, self.theta_accum_error, self.P_att, self.I_att, self.D_att)
-        u3 = self.pid_int(phi, dphi, phi_target, dphi_target, self.phi_accum_error, self.P_att, self.I_att, self.D_att)
-        
-        u4 = self.pid_int(psi, dpsi, psi_target, dpsi_target, self.psi_accum_error, self.P_att, self.I_att, self.D_att)
-
-        return u1, u2, u3, u4
+drone = quad(0.01, 10000, 0, direct_control=0)
+drone.reset()
+controller = pid_control()
+plot = plotter(drone, False)
+while True:
+    x, dx, y, dy, z, dz  = drone.state[0:6]
+    phi, theta, psi = drone.ang
+    dphi, dtheta, dpsi = drone.state[-3:]
+    theta_d, phi_d, U1 = controller.lower_control(x, dx, y, dy, z, dz, 0, 0, 0, 0, 0, 0)
+    U2, U3, U4 = controller.upper_control(phi, dphi, theta, dtheta, psi, dpsi, phi_d, 0, theta_d, 0, 0, 0)
+    action = np.array([U1, U2, U3, U4])
+    _, _, done = drone.step(action)
+    plot.add()
+    if done:
+        plot.plot()
+        break
     
-    
-    def higher_control(self, x, dx, y, dy, psi, x_target, y_target):
-        dx_target = 0
-        dy_target = 0        
-        theta_target = (self.P_pos*(x_target-x)+self.D_pos*(dx_target-dx))*np.sin(psi)
-        phi_target = (-self.P_pos*(y_target-y)+self.D_pos*(dy_target-dy))*np.sin(-psi)        
-        return phi_target, theta_target
-    
-    def control_function(self, states, targets):
-        x, dx, y, dy, z, dz, phi, theta, psi, dphi, dtheta, dpsi = tuple(states)
-        x_target, y_target, z_target, psi_target = tuple(targets)
-        phi_target, theta_target = self.higher_control(x, dx, y, dy, x_target, y_target)
-        u1, u2, u3, u4 = self.lower_control(phi, dphi, theta, dtheta, psi, dpsi, z, dz, phi_target, theta_target, psi_target, z_target)
-        
-        return prop_speeds
-        
-        
-        
-a = pid_control(0.01, 1, 1, 1, 1, 1, 1)
-print(a.higher_control(0, 0, 0, 0, np.pi/4, 1, 1))

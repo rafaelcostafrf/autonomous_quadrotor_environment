@@ -5,6 +5,7 @@ from numpy.linalg import norm
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import pyplot as plt
 from scipy.spatial.transform import Rotation
+from collections import deque
 """""
 QUADROTOR ENVIRONMENT
 DEVELOPED BY: 
@@ -16,12 +17,16 @@ FURTHER DOCUMENTATION ON README.MD
 """""
 
 ## QUADROTOR PARAMETERS ##
+PPO_TRAINING = False
+# PPO_TRAINING = True
 
 ## SIMULATION BOUNDING BOXES ##
+
 BB_POS = 5 
 BB_VEL = 10
 BB_CONTROL = 9
 BB_ANG = np.pi/2
+
 
 # QUADROTOR MASS AND GRAVITY VALUE
 M, G = 1.03, 9.82
@@ -37,10 +42,6 @@ K_F = 1.435e-5
 K_M = 2.4086e-7
 I_R = 5e-5
 T2WR = 2
-
-## INDIRECT CONTROL CONSTANTS ##
-IC_THRUST = 6
-IC_MOMENTUM = 0.8
 
 
 # INERTIA MATRIX
@@ -62,13 +63,12 @@ A = np.array([[A_X,A_Y,A_Z]]).T
 ## REWARD PARAMETERS ##
 
 # CONTROL REWARD PENALITIES #
-P_C = 0.2
-P_C_D = 0.3
+P_C = 0.50
+P_C_D = 0
 
 ## TARGET STEADY STATE ERROR ##
 TR = [0.01, 0.1]
 TR_P = [100, 10]
-
 
 class quad():
 
@@ -93,7 +93,9 @@ class quad():
                                  BB_POS, BB_VEL,
                                  BB_POS, BB_VEL,
                                  BB_ANG, BB_ANG, 4,
-                                 BB_VEL, BB_VEL, BB_VEL])       #Bounding Box Conditions Array
+                                 BB_VEL*3, BB_VEL*3, BB_VEL*3])       #Bounding Box Conditions Array
+        if not PPO_TRAINING:
+            self.bb_cond = self.bb_cond*10
         
         
         self.state_size = 13                                   #Quadrotor states dimension
@@ -110,11 +112,9 @@ class quad():
         self.direct_control_flag = direct_control
         
     def seed(self, seed):
-        
         """"
         Set random seeds for reproducibility
-        """
-        
+        """       
         np.random.seed(seed)       
     
     
@@ -123,27 +123,27 @@ class quad():
         """""
         Translates F (Thrust) and M (Body x, y and z moments) into eletric motor angular velocity (rad/s)
         """""
-        x = np.array([[1, 1, 1, 1],
-                      [-D, 0, D, 0],
-                      [0, D, 0, -D],                      
-                      [-K_F/K_M, +K_F/K_M, -K_F/K_M, +K_F/K_M]])      
+        x = np.array([[K_F, K_F, K_F, K_F],
+                      [-D*K_F, 0, D*K_F, 0],
+                      [0, D*K_F, 0, -D*K_F],                      
+                      [-K_M, +K_M, -K_M, +K_M]])      
         
         y = np.array([f, m[0,0], m[1,0], m[2,0]])
         
-        u = np.linalg.solve(x,y)
+        u = np.linalg.solve(x, y)
         u = np.clip(u,0,T2WR*M*G/4)
         
-        w_1 = np.sqrt(u[0]/K_F)
-        w_2 = np.sqrt(u[1]/K_F)
-        w_3 = np.sqrt(u[2]/K_F)
-        w_4 = np.sqrt(u[3]/K_F)        
+        w_1 = np.sqrt(u[0])
+        w_2 = np.sqrt(u[1])
+        w_3 = np.sqrt(u[2])
+        w_4 = np.sqrt(u[3])        
         w = np.array([w_1,w_2,w_3,w_4])
 
-        FM_new = np.dot(x,u)
+        FM_new = np.dot(x, u)
         
         F_new = FM_new[0]
         M_new = FM_new[1:4]
-        
+
         return u, w, F_new, M_new
         
     def f2F(self,f_action):
@@ -338,14 +338,14 @@ class quad():
             u = self.action
             self.clipped_action = self.action
         else:
-            f_in= action[0]*IC_THRUST+M*G
-            m_action = (np.array([self.action[1:4]]).T)*IC_MOMENTUM
+            f_in= action[0]
+            m_action = (np.array([self.action[1:4]]).T)
             u, _, f_new, m_new = self.f2w(f_in,m_action)
             #CLIPPED ACTION FOR LOGGING 
-            self.clipped_action = np.array([(f_new-M*G)/IC_THRUST,
-                                            m_new[0]/IC_MOMENTUM,
-                                            m_new[1]/IC_MOMENTUM,
-                                            m_new[2]/IC_MOMENTUM])
+            self.clipped_action = np.array([f_new,
+                                            m_new[0],
+                                            m_new[1],
+                                            m_new[2]])
         
         
         self.y = (integrate.solve_ivp(self.drone_eq, (0, self.t_step), self.previous_state, args=(u, ))).y
@@ -412,7 +412,7 @@ class quad():
                    
         abs_control = -np.sum(np.square(action - self.zero_control)) * P_C
         #AVERAGE CONTROL PENALITY        
-        avg_control = -np.sum(np.square(action - np.mean(action_hist,0))) * P_C_D
+        avg_control = -np.sum(np.square(action - np.mean(action_hist, 0))) * P_C_D
         
         ## TOTAL REWARD SHAPING ##
         self.reward += + abs_control + avg_control
@@ -424,13 +424,12 @@ class quad():
         if current_state < target_state:
             self.reward = +500
             self.solved = 1
-            self.done = True 
-            
-        if self.i >= self.n and not self.done:
+            if PPO_TRAINING:
+                self.done = True             
+        elif self.i >= self.n and not self.done:
             self.reward = self.reward
             self.done = True
-            self.solved = 0
-            
+            self.solved = 0            
         elif self.done:
             self.reward = -200
             self.solved = 0

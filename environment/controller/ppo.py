@@ -1,9 +1,12 @@
 import sys
 sys.path.append('/home/rafael/mestrado/quadrotor_environment/')
+from datetime import datetime, date
+
 import torch
 import torch.nn as nn
 from torch.distributions import MultivariateNormal
 import numpy as np
+import time
 
 from environment.quadrotor_env import quad, plotter
 from dl_auxiliary import dl_in_gen
@@ -20,9 +23,11 @@ E−MAIL: COSTA.FERNANDES@UFABC.EDU.BR
 DESCRIPTION:
     PPO deep learning training algorithm. 
 """
-
+random_seed = 12
+seed = '_seed_'+str(random_seed)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+torch.set_num_threads(4)
+PROCESS_TIME = time.time()
 class Memory:
     def __init__(self):
         self.actions = []
@@ -53,8 +58,8 @@ class PPO:
         self.policy_old.load_state_dict(self.policy.state_dict())
         
         try:
-            self.policy.load_state_dict(torch.load('./PPO_continuous_drone.pth',map_location=device))
-            self.policy_old.load_state_dict(torch.load('./PPO_continuous_old_drone.pth',map_location=device))
+            self.policy.load_state_dict(torch.load('./PPO_continuous_drone'+seed+'.pth',map_location=device))
+            self.policy_old.load_state_dict(torch.load('./PPO_continuous_old_drone'+seed+'.pth',map_location=device))
             print('Saved models loaded')
         except:
             print('New models generated')
@@ -115,7 +120,6 @@ def evaluate(env, agent, plotter, eval_steps=10):
     time_steps = 0
     for i in range(eval_steps):
         state, action = env.reset()
-        plotter.clear()
         done = False
         while True:
             time_steps += 1
@@ -138,7 +142,7 @@ def evaluate(env, agent, plotter, eval_steps=10):
 ## HYPERPARAMETERS - CHANGE IF NECESSARY ##
 lr = 0.0001
 max_timesteps = 1000
-action_std = 0.3
+action_std = 0.2
 update_timestep = 4000
 K_epochs = 80
 T = 5
@@ -146,11 +150,11 @@ T = 5
 
 ## HYPERPAREMETERS - PROBABLY NOT NECESSARY TO CHANGE ##
 action_dim = 4
-random_seed = 0
+
 log_interval = 100
 max_episodes = 100000
 time_int_step = 0.01
-solved_reward = 700
+solved_reward = 603
 eps_clip = 0.2
 gamma = 0.99
 betas = (0.9, 0.999)
@@ -158,15 +162,13 @@ DEBUG = 0
 
 # creating environment
 env = quad(time_int_step, max_timesteps, euler=0, direct_control=1, T=T)
-state_dim = 90
+state_dim = 18*T
 print_states = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-plot_labels = ['x', 'y', 'z', 'phi', 'theta', 'psi', 'f1', 'f2', 'f3', 'f4']
+plot_labels = ['x', 'y', 'z', r'$\phi$', r'$\theta$', r'$\psi$', r'$f_1$', r'$f_2$', r'$f_3$', r'$f_4$']
 line_styles = ['-', '-', '-', '--', '--', '--', ':', ':', ':', ':',]
 plot = plotter(env, False)
 
 #creating reward logger
-file_logger = open('eval_reward_log.txt', 'a')
-
 if random_seed:
     print("Random Seed: {}".format(random_seed))
     torch.manual_seed(random_seed)
@@ -184,7 +186,6 @@ avg_length = 0
 time_step = 0
 solved_avg = 0
 eval_on_mean = True
-open('eval_reward_log.txt', 'w').close()
 
 #
 aux_dl = dl_in_gen(T, 13, 4)  
@@ -221,9 +222,9 @@ for i_episode in range(1, max_episodes+1):
     avg_length += t
     
     # save every 500 episodes
-    if i_episode % 500 == 0:
-        torch.save(ppo.policy.state_dict(), './PPO_continuous_{}.pth'.format('drone'))
-        torch.save(ppo.policy_old.state_dict(), './PPO_continuous_old_{}.pth'.format('drone'))
+    if i_episode % 100 == 0:
+        torch.save(ppo.policy.state_dict(), './PPO_continuous_{}.pth'.format('drone'+seed))
+        torch.save(ppo.policy_old.state_dict(), './PPO_continuous_old_{}.pth'.format('drone'+seed))
         
     # logging
     if i_episode % log_interval == 0:
@@ -233,16 +234,23 @@ for i_episode in range(1, max_episodes+1):
         print('\rEpisode {} \t Avg length: {} \t Avg reward: {:.2f} \t Solved: {:.2f}'.format(i_episode, time_avg, reward_avg, solved_avg))
         running_reward = 0
         avg_length = 0
-        file_logger = open('eval_reward_log.txt', 'a')
-        file_logger.write(str(reward_avg)+'\n')
-        file_logger.close()
         
-    # stop training if avg_reward > solved_reward
-    if solved_avg > 0.95:
-        reward_avg, time_avg, solved_avg = evaluate(env,ppo,plotter,200)
-        if solved_avg > 0.95:
-            print("########## Solved! ##########")
-            torch.save(ppo.policy.state_dict(), './PPO_continuous_solved_{}.pth'.format('drone'))
-            torch.save(ppo.policy_old.state_dict(), './PPO_continuous_old_solved_{}.pth'.format('drone'))
-            break
+        today = date.today()
+        # dd/mm/YY
+        d1 = today.strftime("%d/%m/%Y")
+        now = datetime.now()
+        current_time = now.strftime("%H:%M:%S")
+        
+        file_logger = open('eval_reward_log'+seed+'.txt', 'a')
+        file_logger.write(d1+'\t'+current_time+'\t'+str(i_episode)+'\t'+str(time.time()-PROCESS_TIME)+'\t'+str(reward_avg)+'\t'+str(time_avg)+'\n')
+        file_logger.close()
+        # stop training if avg_reward > solved_reward
+        if solved_avg > 0.90 and reward_avg>solved_reward:
+            reward_avg, time_avg, solved_avg = evaluate(env, ppo, plot, 200)
+            print('\rRe-evaluation \t Avg length: {} \t Avg reward: {:.2f} \t Solved: {:.2f}'.format(time_avg, reward_avg, solved_avg))
+            if solved_avg > 0.95 and reward_avg>solved_reward:
+                print("########## Solved! ##########")
+                torch.save(ppo.policy.state_dict(), './PPO_continuous_solved_{}.pth'.format('drone'+seed))
+                torch.save(ppo.policy_old.state_dict(), './PPO_continuous_old_solved_{}.pth'.format('drone'+seed))
+                break
         
