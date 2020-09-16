@@ -72,7 +72,7 @@ TR_P = [100, 10]
 
 class quad():
 
-    def __init__(self, t_step, n, euler=0, direct_control=0, T=1):
+    def __init__(self, t_step, n, euler=0, direct_control=1, T=1):
         
         """"
         inputs:
@@ -85,6 +85,8 @@ class quad():
                 debug: If on, prints a readable reward funcion, step by step, for a simple reward weight debugging.
         
         """
+        self.mass = M
+        self.gravity = G
         
         self.i = 0
         self.T = T                                              #Initial Steps
@@ -110,6 +112,10 @@ class quad():
         self.inv_j = np.linalg.inv(J)
         self.zero_control = np.ones(4)*(2/T2WR - 1)             #Neutral Action (used in reset and absolute action penality) 
         self.direct_control_flag = direct_control
+        
+        self.ang_vel = np.zeros(3)
+        self.prev_ang = np.zeros(3)
+        self.J_mat = J
         
     def seed(self, seed):
         """"
@@ -174,7 +180,12 @@ class quad():
             In indirect mode: Force clipping (preventing motor shutoff and saturates over Thrust to Weight Ratio)
             In direct mode: maps [-1,1] to forces [0,T2WR*G*M/4]
         """
-        self.w, f_in, m_action = self.f2F(action)
+        if self.direct_control_flag:
+            self.w, f_in, m_action = self.f2F(action)
+        else:
+            self.w = np.array([[0, 0, 0, 0]]).T
+            f_in = action[0]
+            m_action = action[1::]
         
         
         #BODY INERTIAL VELOCITY                
@@ -298,6 +309,8 @@ class quad():
         
         if det_state is not None:        
             self.previous_state = det_state
+            q = np.array([self.previous_state[6:10]]).T
+            self.ang = quat_euler(q)
         else:
             self.ang = np.random.rand(3)-0.5
             Q_in = euler_quat(self.ang)
@@ -326,27 +339,20 @@ class quad():
             state: system's state in t+t_step actuated by the action
             done: False, else the system has breached any bounding box, exceeded maximum timesteps, or reached goal.
         """""
-        
         if self.done:
             print('\n----WARNING----\n done flag is TRUE, reset the environment with environment.reset() before using environment.step()\n')
         self.i += 1
-        self.action = np.clip(action,-1,1)
         self.action_hist.append(self.action)
         
         
         if self.direct_control_flag:
+            self.action = np.clip(action,-1,1)
             u = self.action
             self.clipped_action = self.action
         else:
-            f_in= action[0]
-            m_action = (np.array([self.action[1:4]]).T)
-            u, _, f_new, m_new = self.f2w(f_in,m_action)
-            #CLIPPED ACTION FOR LOGGING 
-            self.clipped_action = np.array([f_new,
-                                            m_new[0],
-                                            m_new[1],
-                                            m_new[2]])
-        
+            self.action = action
+            u = self.action
+            self.clipped_action = self.action
         
         self.y = (integrate.solve_ivp(self.drone_eq, (0, self.t_step), self.previous_state, args=(u, ))).y
         self.state = np.transpose(self.y[:, -1])
@@ -354,7 +360,9 @@ class quad():
         
         q = np.array([self.state[6:10]]).T
         q = q/np.linalg.norm(q)
+        self.prev_ang = self.ang
         self.ang = quat_euler(q)
+        self.ang_vel = (self.ang - self.prev_ang)/self.t_step
         self.previous_state = self.state
         self.done_condition()
         self.reward_function()
@@ -420,12 +428,15 @@ class quad():
         #SOLUTION ACHIEVED?
         target_state = 12*(TR[0]**2)
         current_state = np.sum(np.square(np.concatenate((position, velocity, euler_angles, body_ang_vel))))      
-
+        
+        
         if current_state < target_state:
             self.reward = +500
             self.solved = 1
             if PPO_TRAINING:
-                self.done = True             
+                self.done = True
+            elif self.i >= self.n:
+                self.done = True                
         elif self.i >= self.n and not self.done:
             self.reward = self.reward
             self.done = True
