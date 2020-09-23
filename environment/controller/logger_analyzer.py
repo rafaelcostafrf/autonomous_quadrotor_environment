@@ -2,7 +2,7 @@ import numpy as np
 import glob
 import matplotlib.pyplot as plt
 
-path_files = glob.glob('./results/seeds/eval_reward_log_seed_*.txt')
+path_files = glob.glob('./results/seeds/velocity_training/eval_reward_log_velocity_seed_*.txt')
 
 global_episodes = np.zeros([len(path_files),1000])
 global_rewards = np.zeros([len(path_files),1000])
@@ -10,7 +10,7 @@ global_ep_time = np.zeros([len(path_files),1000])
 global_time_delta = np.zeros([len(path_files),1000])
 global_last_ep = np.zeros([len(path_files)])
 global_ep_time_mean = np.zeros([len(path_files)])
-
+global_ep_time_mean_sol = np.zeros([len(path_files)])
 min_ep_len = 1000
 for n_file, file in enumerate(path_files):
 
@@ -48,15 +48,17 @@ for n_file, file in enumerate(path_files):
     global_rewards[n_file,:len(reward)] = reward
     global_ep_time[n_file,:len(ep_time)] = ep_time
     global_time_delta[n_file,:len(time_delta)] = time_delta
-    global_last_ep[n_file] = episode[-1]
+    sol_index = np.where(reward>660)[0][0]
+    global_last_ep[n_file] = episode[sol_index]
     global_ep_time_mean[n_file] = np.mean(ep_time)
+    global_ep_time_mean_sol[n_file] = np.mean(ep_time[0:sol_index])
     
 rew_mean = np.mean(global_rewards[:,0:min_ep_len],axis=0)
 rew_std = np.sqrt(np.var(global_rewards[:,0:min_ep_len],axis=0))
 tim_mean = np.mean(global_time_delta[:,0:min_ep_len],axis=0)
 tim_std = np.sqrt(np.var(global_time_delta[:,0:min_ep_len],axis=0))
-ep_tim_mean = np.mean(global_ep_time[:,0:min_ep_len],axis=0)
-ep_tim_std = np.sqrt(np.var(global_ep_time[:,0:min_ep_len],axis=0))
+ep_tim_mean = np.mean(global_ep_time[:,0:min_ep_len],axis=0)*0.01
+ep_tim_std = np.sqrt(np.var(global_ep_time[:,0:min_ep_len],axis=0))*0.01
 
 
 fig, ax = plt.subplots()
@@ -92,4 +94,4 @@ var_flight_time = np.sqrt((np.mean(global_last_ep)*var_ep_time)**2 + (np.mean(gl
 
 print('Average Ep Until Solution: ' + str(np.mean(global_last_ep))+' ± '+ str(var_last_ep)+' episodes')
 print('Average Ep Time: ' + str(np.mean(global_ep_time_mean)) + ' ± '+ str(var_ep_time)+' steps')
-print('Total Flight Time: ' + str(np.mean(global_ep_time_mean)*np.mean(global_last_ep)*0.01/60/60)+' ± '+ str(var_flight_time*0.01/60/60)+' hours')
+print('Total Flight Time Until Solution: ' + str(np.mean(global_ep_time_mean_sol)*np.mean(global_last_ep)*0.01/60/60)+' ± '+ str(var_flight_time*0.01/60/60)+' hours')

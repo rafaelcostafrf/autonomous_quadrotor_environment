@@ -4,10 +4,15 @@ sys.path.append('/home/rafael/mestrado/quadrotor_environment/')
 from environment.quadrotor_env import quad, plotter
 from environment.quaternion_euler_utility import euler_quat, quat_euler
 from mission_control.mission_control import mission
+import matplotlib.pyplot as plt
 
-P, I, D = 1, 0, 1
-P_z, I_z, D_z = 1, 0, 1
-P_a, I_a, D_a = 20, 0, 5
+
+test_n = 0
+mission_str = 'spiral_tracking'
+
+P, I, D = 27.1, 0, 13
+P_z, I_z, D_z = 21, 0, 10
+P_a, I_a, D_a = 22, 0, 12
 P_ps, I_ps, D_ps =  1, 0, 0.1
 
 class pid_control():
@@ -22,6 +27,10 @@ class pid_control():
         self.pid_psi = pid(P_ps, I_ps, D_ps) 
         
         self.ang_d_ant = np.zeros(3)
+        
+        self.log_state = []
+        self.log_input = []
+        self.log_target = []
         
     def lower_control(self, xd, dxd):
         
@@ -72,12 +81,10 @@ class pid_control():
 
         return U_2, U_3, U_4
     
-    def control(self, xd = None, dxd = None, psd = 0, dpsd = 0):
-        if not xd.all():
-            xd = np.zeros(3)
-        if not dxd.all():
-            dxd = np.zeros(3)
-    
+    def control(self, xd , dxd , psd , dpsd ):
+            
+        self.error_mission = np.array([xd[0], dxd[0], xd[1], dxd[1], xd[2], dxd[2], psd, dpsd])
+        
         F_Z, phi_d, theta_d = self.lower_control(xd, dxd)
         ang_d = np.array([phi_d, theta_d, psi_d])
         v_ang_d = (ang_d - self.ang_d_ant)/drone.t_step
@@ -87,7 +94,98 @@ class pid_control():
         
         return action
     
-    
+    def data_logger(self):
+        self.log_state.append(self.env.state)    
+        self.log_target.append(self.error_mission)
+        self.log_input.append(self.env.w.flatten())
+        if self.env.done:
+            plt.close('all')
+            self.log_state = np.array(self.log_state)
+            self.log_target = np.array(self.log_target)
+            self.log_input = np.array(self.log_input)
+            y = np.transpose(self.log_state)
+            z = np.transpose(self.log_target)
+            in_log = np.transpose(self.log_input)
+            x = np.arange(0,len(self.log_state),1)*self.env.t_step
+            
+            labels = np.array([['x', r'$x_t$'],     
+                               ['y', r'$y_t$'], 
+                               ['z', r'$z_t$'],
+                               [r'$\dot{x}$', r'$\dot{x_t}$'],
+                               [r'$\dot{y}$', r'$\dot{y_t}$'],
+                               [r'$\dot{z}$', r'$\dot{z_t}$']])
+            
+            labels_ang = np.array([r'$w_1$', r'$w_2$', r'$w_3$', r'$w_4$'])
+                        
+            line_style = np.array(['-', '--'])
+            
+            line_styles_z = np.array(['dotted', 'dashdot', 'dotted', 'dashdot', 'dotted', 'dashdot'])
+            
+            
+            
+            # POSISIONS
+            plt.figure("Position")
+            
+            for i in range(3):
+                plt.subplot(311+i)
+                plt.plot(x, y[0+2*i, :], ls = '-')
+                plt.plot(x, z[0+2*i, :], ls = '--')
+                plt.legend(labels[i])
+                if i == 2:
+                    plt.xlabel('time (s)')
+                if i == 1:
+                    plt.ylabel('position (m)')
+                plt.grid(True)
+            plt.savefig('./results/pid_'+mission_str+'/position_'+str(test_n)+'.png')
+            
+            # VELOCITIES
+            plt.figure("Velocity")
+            
+            for i in range(3):
+                plt.subplot(311+i)
+                plt.plot(x, y[1+2*i, :], ls = '-')
+                plt.plot(x, z[1+2*i, :], ls = '--')
+                plt.legend(labels[3+i])
+                if i == 2:
+                    plt.xlabel('time (s)')
+                if i == 1:
+                    plt.ylabel('velocity (m/s)')
+                plt.grid(True)
+            plt.savefig('./results/pid_'+mission_str+'/velocities_'+str(test_n)+'.png')
+            
+            # ANGULAR PROP VELOCITY
+            fig = plt.figure("Proppeler Angular Velocity")
+            fig.text(0.5, 0.04, 'time (s)', ha='center')
+            fig.text(0.04, 0.5, 'velocity (rad/s)', va='center', rotation='vertical')
+            for i, data in enumerate(in_log):
+                plt.subplot(411+i)
+                plt.plot(x, data, label = labels_ang[i])
+                plt.grid(True)                
+                plt.legend()
+            plt.savefig('./results/pid_'+mission_str+'/prop_angular_vel_'+str(test_n)+'.png')
+            
+            # 3D PLOT
+            fig = plt.figure('3D plot')            
+            ax = fig.gca(projection='3d')      
+            
+            ax.plot(y[0, :], y[2, :], y[4, :], label = 'Position')
+            ax.plot(z[0, :], z[2, :], z[4, :], label = 'Target', ls='--')
+            # ax.set(xlim=(-1.2,1.2), ylim=(-1.2,1.2), zlim=(0,3), )
+            ax.set_xlabel('x (m)')
+            ax.set_ylabel('y (m)')
+            ax.set_zlabel('z (m)')
+            plt.legend()
+            plt.savefig('./results/pid_'+mission_str+'/3D_plot_'+str(test_n)+'.png')
+            plt.show()
+            
+            self.log_state = []
+            self.log_target = []
+            self.log_input = []
+            
+        
+        
+        
+        
 class pid():
     def __init__(self, P, I, D, timestep=0.01):
         self.ix = 0
@@ -100,11 +198,16 @@ class pid():
         self.ix = self.ix+(x_d-x)*self.ts
         control = self.p*(x_d-x)+self.d*(dx_d-dx)-self.i*(self.ix)
         return control
+
+
+
+
+
+
     
 drone = quad(0.01, 5000, 0, direct_control=0)
 mission_control = mission(drone.t_step)
-mission_control.spiral_trajectory(4000, 5000, 0.3, np.pi/10, 3, np.array([0,0,0]))
-
+mission_control.gen_trajectory(5000, 2000, np.array([10, 10, 10]), )
 
 initial_state = np.zeros(13)
 initial_position = [0, 0, 0]
@@ -120,21 +223,29 @@ initial_state[6:10] = initial_quaternions
 initial_state[10::] = initial_angular_velocity
 
 
-drone.reset(initial_state)
+drone.reset(initial_state, )
 controller = pid_control(drone)
 plot = plotter(drone, False)
+error_sum = 0
 while True:
     error_mission = mission_control.get_error(drone.i*drone.t_step)
     
-    xd = error_mission[0:5:2]
-    dxd = error_mission[1:6:2]
+    xd = mission_control.trajectory[drone.i-1]
+    dxd = mission_control.velocity[drone.i-1]
     psi_d = 0
     
+    error_pos = drone.state[0:5:2]-xd 
+    error_vel = drone.state[1:6:2]-dxd
+    error_array = np.append(error_pos, error_vel)
+    error_sum += np.sqrt(np.sum(np.square(error_array)))    
+    
+    
     action = controller.control(xd, dxd, psi_d, 0)       
-
     _, _, done = drone.step(action)
-    plot.add()
+    controller.data_logger()
+
     if done:
-        plot.plot()
+        print(drone.abs_sum)
+        print(error_sum)
         break
     
