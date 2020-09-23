@@ -1,3 +1,4 @@
+
 import torch
 import time
 import numpy as np
@@ -8,6 +9,7 @@ from environment.quadrotor_env import quad, sensor
 from environment.quaternion_euler_utility import deriv_quat
 from environment.controller.model import ActorCritic
 from environment.controller.dl_auxiliary import dl_in_gen
+from environment.controller.velocity_pid import vel_pid
 from mission_control.mission_control import mission
 
 ## PPO SETUP ##
@@ -158,11 +160,11 @@ class quad_position():
             if self.M_C:
                 self.mission_control = mission(time_int_step)
                 if self.M_C ==1:
-                    self.mission_control.gen_trajectory(5000, 3000, np.array([0, 0, 15]), )
+                    self.mission_control.gen_trajectory(5000, 2000, np.array([10, 10, 10]), )
                 elif self.M_C ==2:
                     self.mission_control.sin_trajectory(4000, 0.3, 0.05, np.array([0, 0, 0]), np.array([1, 1, 0]))
                 else:
-                    self.mission_control.spiral_trajectory(4000, 5000, 0.3, np.pi/10, 3, np.array([0,0,0]))
+                    self.mission_control.spiral_trajectory(4000, 5000, 1, np.pi/3, 0.5, np.array([0,0,0]))
                 
                 self.error_mission = np.zeros(14)
             else:
@@ -180,6 +182,9 @@ class quad_position():
             ang = self.env.ang
             self.a = np.zeros(4)
             self.episode_n += 1
+            self.error_sum = 0
+            self.cumm_error = 0
+            self.der_error = np.array([0, 0])
             print(f'Episode Number: {self.episode_n}')
         else:
             progress = self.env.i/self.env.n*100
@@ -187,6 +192,9 @@ class quad_position():
             action = self.policy.actor(torch.FloatTensor(self.network_in).to(device)).cpu().detach().numpy()
             self.action_log = action
             states, _, done = self.env.step(action)
+
+            self.error_sum += np.sqrt(np.sum(np.square((states[0, 0:5:2]-self.error_mission[0:5:2]))))
+            
             time_iter = time.time()
             _, self.velocity_accel, self.pos_accel = self.sensor.accel_int()
             self.quaternion_gyro = self.sensor.gyro_int()
@@ -197,6 +205,8 @@ class quad_position():
             self.time_total_sens.append(time.time() - time_iter)
             if self.M_C:
                 self.error_mission = self.mission_control.get_error(self.env.i*self.env.t_step)
+                pid_error, self.cumm_error, self.der_error = vel_pid(self.env.state, self.error_mission, self.cumm_error, self.der_error)
+                self.error_mission = self.error_mission + pid_error
             else:
                 self.error_mission = np.zeros(14)
             #SENSOR CONTROL
@@ -214,7 +224,10 @@ class quad_position():
             ang = self.env.ang
             for i, w_i in enumerate(self.env.w):
                 self.a[i] += (w_i*time_int_step )*180/np.pi/10
-    
+            if self.env.done:
+                print(self.env.abs_sum)
+                print(self.error_sum)
+                self.env.abs_sum = 0 
         ang_deg = (ang[2]*180/np.pi, ang[0]*180/np.pi, ang[1]*180/np.pi)
         pos = (0+pos[0], 0+pos[1], 5+pos[2])
         

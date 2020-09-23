@@ -5,7 +5,8 @@ from numpy.linalg import norm
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import pyplot as plt
 from scipy.spatial.transform import Rotation
-from collections import deque
+import inspect
+
 """""
 QUADROTOR ENVIRONMENT
 DEVELOPED BY: 
@@ -16,13 +17,10 @@ DEVELOPED BY:
 FURTHER DOCUMENTATION ON README.MD
 """""
 
-## QUADROTOR PARAMETERS ##
-PPO_TRAINING = False
-# PPO_TRAINING = True
+
 
 ## SIMULATION BOUNDING BOXES ##
-
-BB_POS = 5 
+BB_POS = 5
 BB_VEL = 10
 BB_CONTROL = 9
 BB_ANG = np.pi/2
@@ -63,17 +61,22 @@ A = np.array([[A_X,A_Y,A_Z]]).T
 ## REWARD PARAMETERS ##
 
 # CONTROL REWARD PENALITIES #
-P_C = 0.50
+P_C = 1
 P_C_D = 0
 
 ## TARGET STEADY STATE ERROR ##
 TR = [0.01, 0.1]
 TR_P = [100, 10]
 
-class quad():
 
-    def __init__(self, t_step, n, euler=0, direct_control=1, T=1):
-        
+## CHECKING IF THE ENV IS BEING CALLED FOR TRAINING OR EVALUATION
+if inspect.stack()[6][1] == '/home/rafael/mestrado/quadrotor_environment/environment/controller/ppo.py':
+    PPO_TRAINING = True
+else:
+    PPO_TRAINING = False
+    
+class quad():
+    def __init__(self, t_step, n, euler=0, direct_control=1, T=1):        
         """"
         inputs:
             t_step: integration time step 
@@ -91,31 +94,45 @@ class quad():
         self.i = 0
         self.T = T                                              #Initial Steps
         
-        self.bb_cond = np.array([BB_POS, BB_VEL,
-                                 BB_POS, BB_VEL,
-                                 BB_POS, BB_VEL,
+        self.bb_cond = np.array([BB_VEL,
+                                 BB_VEL,
+                                 BB_VEL,
                                  BB_ANG, BB_ANG, 4,
                                  BB_VEL*3, BB_VEL*3, BB_VEL*3])       #Bounding Box Conditions Array
         if not PPO_TRAINING:
             self.bb_cond = self.bb_cond*10
         
+        #Quadrotor states dimension
+        self.state_size = 13       
         
-        self.state_size = 13                                   #Quadrotor states dimension
-        self.action_size = 4                                    #Quadrotor action dimension
+        #Quadrotor action dimension                            
+        self.action_size = 4                                    
         
+        #Env done Flag
+        self.done = True                                        
         
-        self.done = True                                        #Env done Flag
-    
-        self.n = n+self.T                                       #Env Maximum Steps
+        #Env Maximum Steps
+        self.n = n+self.T
+
+                                               
         self.t_step = t_step
         
         self.inv_j = np.linalg.inv(J)
-        self.zero_control = np.ones(4)*(2/T2WR - 1)             #Neutral Action (used in reset and absolute action penality) 
+        
+        #Neutral Action (used in reset and absolute action penalty) 
+        if direct_control:
+            self.zero_control = np.ones(4)*(2/T2WR - 1)             
+        else:
+            self.zero_control = np.array([M*G, 0, 0, 0])
+            
         self.direct_control_flag = direct_control
         
         self.ang_vel = np.zeros(3)
         self.prev_ang = np.zeros(3)
         self.J_mat = J
+        
+        #Absolute sum of control efforts over the episode
+        self.abs_sum = 0
         
     def seed(self, seed):
         """"
@@ -128,6 +145,14 @@ class quad():
     def f2w(self,f,m):
         """""
         Translates F (Thrust) and M (Body x, y and z moments) into eletric motor angular velocity (rad/s)
+        input:
+            f - thrust 
+            m - body momentum in np.array([[mx, my, mz]]).T
+        outputs:
+            F - Proppeler Thrust - engine 1 to 4
+            w - Proppeler angular velocity - engine 1 to 4
+            F_new - clipped thrust (if control surpasses engine maximum)
+            M_new - clipped momentum (same as above)
         """""
         x = np.array([[K_F, K_F, K_F, K_F],
                       [-D*K_F, 0, D*K_F, 0],
@@ -137,22 +162,32 @@ class quad():
         y = np.array([f, m[0,0], m[1,0], m[2,0]])
         
         u = np.linalg.solve(x, y)
-        u = np.clip(u,0,T2WR*M*G/4)
+        u = np.clip(u, 0, T2WR*M*G/4/K_F)
         
         w_1 = np.sqrt(u[0])
         w_2 = np.sqrt(u[1])
         w_3 = np.sqrt(u[2])
         w_4 = np.sqrt(u[3])        
-        w = np.array([w_1,w_2,w_3,w_4])
+        w = np.array([[w_1,w_2,w_3,w_4]]).T
 
         FM_new = np.dot(x, u)
         
         F_new = FM_new[0]
         M_new = FM_new[1:4]
 
-        return u, w, F_new, M_new
+        return u*K_F, w, F_new, M_new
         
-    def f2F(self,f_action):
+    def f2F(self, f_action):
+        """""
+        Translates Proppeler thrust to body trhust and body angular momentum.
+        input:
+            f_action - proppeler thrust written as np.array([f1, f2, f3, f4])
+                        the proppeler thrust if normalized in [-1, 1] domain, where -1 is 0 thrust and 1 is maximum thrust 
+        output:
+            w - proppeler angular velocity
+            F_new - body thrust
+            M_new - body angular momentum
+        """""
         f = (f_action+1)*T2WR*M*G/8
 
         
@@ -182,11 +217,10 @@ class quad():
         """
         if self.direct_control_flag:
             self.w, f_in, m_action = self.f2F(action)
-        else:
-            self.w = np.array([[0, 0, 0, 0]]).T
+        else:            
             f_in = action[0]
-            m_action = action[1::]
-        
+            m_action = np.array([action[1::]]).T            
+            
         
         #BODY INERTIAL VELOCITY                
         vel_x = x[1]
@@ -260,7 +294,7 @@ class quad():
         m_in = m_action + m_gyro + m_drag - np.cross(W.flatten(), np.dot(J, W).flatten()).reshape((3,1))
 
         #INERTIAL ANGULAR ACCELERATION        
-        accel_ang = np.dot(self.inv_j,m_in).flatten()
+        accel_ang = np.dot(self.inv_j, m_in).flatten()
         accel_w_xx = accel_ang[0]
         accel_w_yy = accel_ang[1]
         accel_w_zz = accel_ang[2]
@@ -283,10 +317,10 @@ class quad():
                          accel_w_xx, accel_w_yy, accel_w_zz])
         return out
 
-    def reset(self,det_state = None):
+    def reset(self, det_state = None):
         
         """""
-        inputs:
+        inputs:_, self.w, f_in, m_action = self.f2w(f_in, m_action)
             det_state: 
                 if == 0 randomized initial state
                 else det_state is the actual initial state, depending on the euler flag
@@ -342,19 +376,23 @@ class quad():
         if self.done:
             print('\n----WARNING----\n done flag is TRUE, reset the environment with environment.reset() before using environment.step()\n')
         self.i += 1
-        self.action_hist.append(self.action)
-        
+                
         
         if self.direct_control_flag:
             self.action = np.clip(action,-1,1)
             u = self.action
             self.clipped_action = self.action
+            self.step_effort = (self.action+1)*T2WR*M*G/8
         else:
             self.action = action
-            u = self.action
-            self.clipped_action = self.action
+            self.step_effort, self.w, f_in, m_action = self.f2w(action[0], np.array([action[1::]]).T)
+            self.clipped_action = np.append([f_in], m_action)
+            u = self.clipped_action
+       
+        self.action_hist.append(self.clipped_action)
         
         self.y = (integrate.solve_ivp(self.drone_eq, (0, self.t_step), self.previous_state, args=(u, ))).y
+        
         self.state = np.transpose(self.y[:, -1])
         self.quat_state = np.array([np.concatenate((self.state[0:10], self.V_q))])
         
@@ -366,6 +404,7 @@ class quad():
         self.previous_state = self.state
         self.done_condition()
         self.reward_function()
+        self.control_effort()
         return self.quat_state, self.reward, self.done
 
     def done_condition(self):
@@ -374,11 +413,13 @@ class quad():
         Checks if bounding boxes done condition have been met
         """""
         
-        cond_x = np.concatenate((self.state[0:6], self.ang, self.state[-3:]))
+        cond_x = np.concatenate((self.state[1:6:2], self.ang, self.state[-3:]))
         for x, c in zip(np.abs(cond_x), self.bb_cond):
             if  x >= c:
                 self.done = True
-
+        if self.i >= self.n:
+            self.done = True
+            
     def reward_function(self, debug=0):
         
         """""
@@ -388,27 +429,25 @@ class quad():
         
         """""
         
-        
         self.reward = 0
         
-        position = self.state[0:5:2]
         velocity = self.state[1:6:2]
         euler_angles = self.ang
         psi = self.ang[2]
         body_ang_vel = self.state[-3:]
         action = self.action
-        action_hist = self.action_hist
+
         
-        shaping = 100*(-norm(position/BB_POS)-norm(velocity/BB_VEL)-norm(psi/4)-0.3*norm(euler_angles[0:2]/BB_ANG))
+        shaping = -100*(norm(velocity/BB_VEL)+
+                        norm(psi/4)+
+                        0.3*norm(euler_angles[0:2]/BB_ANG))
         
         #CASCADING REWARDS
-        r_state = np.concatenate((position,[psi]))        
-        for TR_i,TR_Pi in zip(TR,TR_P): 
+        r_state = np.concatenate((velocity, [psi]))  
+        for TR_i, TR_Pi in zip(TR, TR_P): 
             if norm(r_state) < norm(np.ones(len(r_state))*TR_i):
                 shaping += TR_Pi
                 if norm(euler_angles) < norm(np.ones(3)*TR_i*2):
-                    shaping += TR_Pi
-                if norm(velocity) < norm(np.ones(3)*TR_i):
                     shaping += TR_Pi
                 break
         
@@ -416,36 +455,34 @@ class quad():
             self.reward = shaping - self.prev_shaping
         self.prev_shaping = shaping
         
-        #ABSOLUTE CONTROL PENALITY
-                   
+        #ABSOLUTE CONTROL PENALTY
         abs_control = -np.sum(np.square(action - self.zero_control)) * P_C
-        #AVERAGE CONTROL PENALITY        
-        avg_control = -np.sum(np.square(action - np.mean(action_hist, 0))) * P_C_D
-        
+
         ## TOTAL REWARD SHAPING ##
-        self.reward += + abs_control + avg_control
+        self.reward += + abs_control 
         
         #SOLUTION ACHIEVED?
-        target_state = 12*(TR[0]**2)
-        current_state = np.sum(np.square(np.concatenate((position, velocity, euler_angles, body_ang_vel))))      
+        target_state = 9*(TR[0]**2)
+        current_state = np.sum(np.square(np.concatenate((velocity, euler_angles, body_ang_vel))))      
+        
         
         
         if current_state < target_state:
             self.reward = +500
             self.solved = 1
             if PPO_TRAINING:
-                self.done = True
-            elif self.i >= self.n:
-                self.done = True                
-        elif self.i >= self.n and not self.done:
+                self.done = True              
+        elif self.i >= self.n:
             self.reward = self.reward
-            self.done = True
             self.solved = 0            
         elif self.done:
             self.reward = -200
-            self.solved = 0
+            self.solved = 0            
          
-            
+    def control_effort(self):
+        instant_effort = np.sqrt(np.sum(np.square(self.step_effort-np.array([0*M*G, 0, 0, 0]))))
+        self.abs_sum += instant_effort
+        
 class sensor():
     
     """Sensor class - simulates onboard sensors, given standard deviation and bias.
@@ -601,7 +638,7 @@ class plotter():
     plot: plot saved states     
     """""   
     
-    def __init__(self, env, depth_plot=False):        
+    def __init__(self, env, velocity_plot = False, depth_plot=False):        
         plt.close('all')
         self.figure = plt.figure('States')
         self.depth_plot = depth_plot
@@ -609,17 +646,27 @@ class plotter():
         self.states = []
         self.times = []
         self.print_list = range(10)
-        self.plot_labels = ['x', 'y', 'z',
-                            'phi', 'theta', 'psi', 
-                            'u_1', 'u_2', 'u_3', 'u_4']
-        
+        if velocity_plot:
+            self.plot_labels = ['v_x', 'v_y', 'v_z',
+                                'phi', 'theta', 'psi', 
+                                'u_1', 'u_2', 'u_3', 'u_4']
+            self.depth_plot = False
+        else:
+            self.plot_labels = ['x', 'y', 'z',
+                                'phi', 'theta', 'psi', 
+                                'u_1', 'u_2', 'u_3', 'u_4']
+            
         self.line_styles = ['-', '-', '-',
                             '--', '--', '--', 
                             ':', ':', ':', ':']
         
-            
+        self.velocity_plot = velocity_plot
+        
     def add(self):
-        state = np.concatenate((self.env.state[0:5:2].flatten(), self.env.ang.flatten(), self.env.clipped_action.flatten()))
+        if self.velocity_plot:
+            state = np.concatenate((self.env.state[1:6:2].flatten(), self.env.ang.flatten(), self.env.clipped_action.flatten()))
+        else:
+            state = np.concatenate((self.env.state[0:5:2].flatten(), self.env.ang.flatten(), self.env.clipped_action.flatten()))
         self.states.append(state)
         self.times.append(self.env.i*self.env.t_step)
         

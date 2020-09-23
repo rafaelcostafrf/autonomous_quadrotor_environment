@@ -15,7 +15,7 @@ DESCRIPTION:
 class dl_in_gen():
     
     def __init__(self, T, state_size, action_size):
-        self.hist_size = state_size+action_size+1
+        self.hist_size = (state_size-3)+action_size+1
         self.deep_learning_in_size = self.hist_size*T
         self.reset()
         
@@ -25,6 +25,7 @@ class dl_in_gen():
     def dl_input(self, states, actions):
         
         for state, action in zip(states, actions):
+            state = np.concatenate((state[1:6:2], state[6::]))
             state_t = np.concatenate((action, state))
             self.deep_learning_input = np.roll(self.deep_learning_input, -self.hist_size)
             self.deep_learning_input[-self.hist_size:] = state_t

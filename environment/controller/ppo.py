@@ -23,11 +23,12 @@ E−MAIL: COSTA.FERNANDES@UFABC.EDU.BR
 DESCRIPTION:
     PPO deep learning training algorithm. 
 """
-random_seed = 12
-seed = '_seed_'+str(random_seed)
+random_seed = 16
+seed = '_velocity_seed_'+str(random_seed)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 torch.set_num_threads(4)
 PROCESS_TIME = time.time()
+
 class Memory:
     def __init__(self):
         self.actions = []
@@ -154,7 +155,7 @@ action_dim = 4
 log_interval = 100
 max_episodes = 100000
 time_int_step = 0.01
-solved_reward = 603
+solved_reward = 700
 eps_clip = 0.2
 gamma = 0.99
 betas = (0.9, 0.999)
@@ -162,11 +163,8 @@ DEBUG = 0
 
 # creating environment
 env = quad(time_int_step, max_timesteps, euler=0, direct_control=1, T=T)
-state_dim = 18*T
-print_states = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-plot_labels = ['x', 'y', 'z', r'$\phi$', r'$\theta$', r'$\psi$', r'$f_1$', r'$f_2$', r'$f_3$', r'$f_4$']
-line_styles = ['-', '-', '-', '--', '--', '--', ':', ':', ':', ':',]
-plot = plotter(env, False)
+state_dim = 15*T
+plot = plotter(env, True, False)
 
 #creating reward logger
 if random_seed:
@@ -175,6 +173,7 @@ if random_seed:
     env.seed(random_seed)
     np.random.seed(random_seed)
 
+# creating ppo trainer
 memory = Memory()
 ppo = PPO(state_dim, action_dim, action_std, lr, betas, gamma, K_epochs, eps_clip)
 print(lr,betas)
@@ -187,26 +186,32 @@ time_step = 0
 solved_avg = 0
 eval_on_mean = True
 
-#
-aux_dl = dl_in_gen(T, 13, 4)  
+# auxiliar deep learning input generator
+aux_dl = dl_in_gen(T, env.state_size, env.action_size)  
 aux_dl.reset()
-
-
 
 
 # training loop
 for i_episode in range(1, max_episodes+1):
+    # Resets the environment
     state, action = env.reset()
+    
+    #Prints the progress on console
     print('\rProgress: '+str(int((i_episode-1)%log_interval/log_interval*100))+'% ',end='\r')
-
+    
     for t in range(max_timesteps):        
+        
+        # Converts the quadrotor past states and actions to neural network input
         network_in = aux_dl.dl_input(state, action)        
+        
         t_since_last_plot += 1
         time_step +=1
+        
         # Running policy_old:
         action = ppo.select_action(network_in, memory)
         state, reward, done = env.step(action)
         action = np.array([action])
+        
         # Saving reward and is_terminals:
         memory.rewards.append(reward)
         memory.is_terminals.append(done)
@@ -217,11 +222,11 @@ for i_episode in range(1, max_episodes+1):
             memory.clear_memory()
             time_step = 0
         running_reward += reward
-        if done:            
+        if done:  
             break
     avg_length += t
     
-    # save every 500 episodes
+    # save every x episodes
     if i_episode % 100 == 0:
         torch.save(ppo.policy.state_dict(), './PPO_continuous_{}.pth'.format('drone'+seed))
         torch.save(ppo.policy_old.state_dict(), './PPO_continuous_old_{}.pth'.format('drone'+seed))
@@ -245,10 +250,10 @@ for i_episode in range(1, max_episodes+1):
         file_logger.write(d1+'\t'+current_time+'\t'+str(i_episode)+'\t'+str(time.time()-PROCESS_TIME)+'\t'+str(reward_avg)+'\t'+str(time_avg)+'\n')
         file_logger.close()
         # stop training if avg_reward > solved_reward
-        if solved_avg > 0.90 and reward_avg>solved_reward:
-            reward_avg, time_avg, solved_avg = evaluate(env, ppo, plot, 200)
-            print('\rRe-evaluation \t Avg length: {} \t Avg reward: {:.2f} \t Solved: {:.2f}'.format(time_avg, reward_avg, solved_avg))
-            if solved_avg > 0.95 and reward_avg>solved_reward:
+        if i_episode==3000:
+            # reward_avg, time_avg, solved_avg = evaluate(env, ppo, plot, 200)
+            # print('\rRe-evaluation \t Avg length: {} \t Avg reward: {:.2f} \t Solved: {:.2f}'.format(time_avg, reward_avg, solved_avg))
+            # if solved_avg > 0.95 and reward_avg>solved_reward:
                 print("########## Solved! ##########")
                 torch.save(ppo.policy.state_dict(), './PPO_continuous_solved_{}.pth'.format('drone'+seed))
                 torch.save(ppo.policy_old.state_dict(), './PPO_continuous_old_solved_{}.pth'.format('drone'+seed))
