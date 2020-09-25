@@ -1,4 +1,4 @@
-
+import pandas as pd
 import torch
 import time
 import numpy as np
@@ -10,6 +10,8 @@ from environment.quaternion_euler_utility import deriv_quat
 from environment.controller.model import ActorCritic
 from environment.controller.dl_auxiliary import dl_in_gen
 from environment.controller.velocity_pid import vel_pid
+from environment.controller.response_analyzer import response_analyzer
+from environment.controller.target_parser import target_parse
 from mission_control.mission_control import mission
 
 ## PPO SETUP ##
@@ -17,20 +19,28 @@ time_int_step = 0.01
 T = 5
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 test_n = 0
+
 class quad_position():
     
-    def __init__(self, render, quad_model, prop_models, EPISODE_STEPS, REAL_CTRL, ERROR_AQS_EPISODES, ERROR_PATH, HOVER, M_C):
+    def __init__(self, render, quad_model, prop_models, EPISODE_STEPS, REAL_CTRL, ERROR_AQS_EPISODES, ERROR_PATH, HOVER):
         self.REAL_CTRL = REAL_CTRL
         self.IMG_POS_DETER = False
         self.ERROR_AQS_EPISODES = ERROR_AQS_EPISODES
         self.ERROR_PATH = ERROR_PATH
         self.HOVER = HOVER
-        self.M_C = M_C
-        self.mission_str = 'point_tracking' if self.M_C == 1 else ('sinusoidal_tracking' if self.M_C == 2 else ('spiral_tracking' if self.M_C==3 else ''))
+
+
+        indexes = ['CE', 'EOT',
+                   'Over X', 'Over Y', 'Over Z',
+                   'Rise X', 'Rise Y', 'Rise Z',
+                   'Set X', 'Set Y', 'Set Z',
+                   'SS X', 'SS Y', 'SS Z',]
+
+        self.results = pd.DataFrame(0, index=indexes, columns=([]))
         
         self.quad_model = quad_model
         self.prop_models = prop_models
-        self.episode_n = 1
+        self.episode_n = 0
         self.time_total_sens = []
         self.T = T
         
@@ -61,7 +71,11 @@ class quad_position():
             
         n_parameters = sum(p.numel() for p in self.policy.parameters())
         print('Neural Network Number of Parameters: %i' %n_parameters)
-    
+        
+        
+        
+        
+        
     def drone_logger_task(self, task):
         self.log_state.append(self.env.state)    
         self.log_target.append(self.error_mission)
@@ -107,8 +121,7 @@ class quad_position():
             plt.savefig('./environment/controller/results/'+self.mission_str+'/position_'+str(test_n)+'.png')
             
             # VELOCITIES
-            plt.figure("Velocity")
-            
+            plt.figure("Velocity")            
             for i in range(3):
                 plt.subplot(311+i)
                 plt.plot(x, y[1+2*i, :], ls = '-')
@@ -144,11 +157,16 @@ class quad_position():
             ax.set_zlabel('z (m)')
             plt.legend()
             plt.savefig('./environment/controller/results/'+self.mission_str+'/3D_plot_'+str(test_n)+'.png')
-            plt.show()
+            series = response_analyzer(y, self.ttarget, self.env.abs_sum, self.error_sum, self.env.n)
+            episode_name = 'RL '+str(self.ttarget)+' '+str(self.ttime)+'s'
+            
+            self.results.insert(self.episode_n-1, episode_name, series)
+            plt.draw()
             
             self.log_state = []
             self.log_target = []
             self.log_input = []
+
         return task.cont
 
         
@@ -156,15 +174,22 @@ class quad_position():
     
     def drone_position_task(self, task):
         if task.frame == 0 or self.env.done:
+            if self.episode_n == self.ERROR_AQS_EPISODES:
+                self.results = self.results.T
+                self.results.to_csv('rl_results.csv')
+                sys.exit()
+            self.M_C, self.ttime, self.ttarget = target_parse(self.episode_n)
+
+            self.mission_str = 'point_tracking' if self.M_C == 1 else ('sinusoidal_tracking' if self.M_C == 2 else ('spiral_tracking' if self.M_C==3 else ''))
             #MISSION CONTROL SETUP
             if self.M_C:
                 self.mission_control = mission(time_int_step)
                 if self.M_C ==1:
-                    self.mission_control.gen_trajectory(5000, 2000, np.array([10, 10, 10]), )
+                    self.mission_control.gen_trajectory(5000, int(self.ttime/self.env.t_step), np.array(self.ttarget), )
                 elif self.M_C ==2:
                     self.mission_control.sin_trajectory(4000, 0.3, 0.05, np.array([0, 0, 0]), np.array([1, 1, 0]))
                 else:
-                    self.mission_control.spiral_trajectory(4000, 5000, 1, np.pi/3, 0.5, np.array([0,0,0]))
+                    self.mission_control.spiral_trajectory(*tuple(self.ttarget))
                 
                 self.error_mission = np.zeros(14)
             else:
@@ -183,6 +208,7 @@ class quad_position():
             self.a = np.zeros(4)
             self.episode_n += 1
             self.error_sum = 0
+            self.env.abs_sum = 0 
             self.cumm_error = 0
             self.der_error = np.array([0, 0])
             print(f'Episode Number: {self.episode_n}')
@@ -194,7 +220,7 @@ class quad_position():
             states, _, done = self.env.step(action)
 
             self.error_sum += np.sqrt(np.sum(np.square((states[0, 0:5:2]-self.error_mission[0:5:2]))))
-            
+          
             time_iter = time.time()
             _, self.velocity_accel, self.pos_accel = self.sensor.accel_int()
             self.quaternion_gyro = self.sensor.gyro_int()
@@ -215,7 +241,7 @@ class quad_position():
                                 self.pos_accel[2], self.velocity_accel[2]])
 
             if self.REAL_CTRL:
-                self.network_in = self.aux_dl.dl_input(states-self.error_mission, [action])
+                self.network_in = self.aux_dl.dl_input(states - self.error_mission, [action])
             else:
                 states_sens = [np.concatenate((pos_vel, self.quaternion_gyro, quaternion_vel))]-self.error_mission                  
                 self.network_in = self.aux_dl.dl_input(states_sens, [action])
@@ -224,10 +250,6 @@ class quad_position():
             ang = self.env.ang
             for i, w_i in enumerate(self.env.w):
                 self.a[i] += (w_i*time_int_step )*180/np.pi/10
-            if self.env.done:
-                print(self.env.abs_sum)
-                print(self.error_sum)
-                self.env.abs_sum = 0 
         ang_deg = (ang[2]*180/np.pi, ang[0]*180/np.pi, ang[1]*180/np.pi)
         pos = (0+pos[0], 0+pos[1], 5+pos[2])
         

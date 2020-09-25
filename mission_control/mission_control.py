@@ -19,9 +19,10 @@ class mission():
             for i in range(3):
                 self.trajectory[:steps, i] = np.linspace(initial_state[i], position[i]+initial_state[i], steps)
                 self.trajectory[steps:, i] = position[i]
-            for i in range(steps-1):
-                for j in range(3):
-                    self.velocity[i+1, j] = (self.trajectory[i+1, j] - self.trajectory[i, j])/self.time_step
+            if steps > 1:
+                for i in range(steps-1):
+                    for j in range(3):
+                        self.velocity[i+1, j] = (self.trajectory[i+1, j] - self.trajectory[i, j])/self.time_step
         else:
             for i in range(3):
                 self.velocity[:, i] = np.linspace(0, velocity[i], steps)

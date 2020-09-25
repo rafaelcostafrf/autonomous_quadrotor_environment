@@ -65,8 +65,8 @@ P_C = 1
 P_C_D = 0
 
 ## TARGET STEADY STATE ERROR ##
-TR = [0.01, 0.1]
-TR_P = [100, 10]
+TR = [0.001, 0.01, 0.1]
+TR_P = [300, 100, 10]
 
 
 ## CHECKING IF THE ENV IS BEING CALLED FOR TRAINING OR EVALUATION
@@ -340,6 +340,7 @@ class quad():
         self.i = 0   
         self.prev_shaping = None
         self.previous_state = np.zeros(self.state_size)
+        self.abs_sum = 0
         
         if det_state is not None:        
             self.previous_state = det_state
@@ -348,10 +349,10 @@ class quad():
         else:
             self.ang = np.random.rand(3)-0.5
             Q_in = euler_quat(self.ang)
-            self.previous_state[0:5:2] = (np.random.rand(3)-0.5)*BB_POS
-            self.previous_state[1:6:2] = (np.random.rand(3)-0.5)*BB_POS/2
+            self.previous_state[0:5:2] = np.clip((np.random.normal([0, 0, 0], 2)), -BB_POS/2, BB_POS/2)
+            self.previous_state[1:6:2] = np.clip((np.random.normal([0, 0, 0], 2)), -BB_VEL/2, BB_VEL/2)
             self.previous_state[6:10] = Q_in.T
-            self.previous_state[10:13] = (np.random.rand(3)-0.5)*1
+            self.previous_state[10:13] = np.clip((np.random.normal([0, 0, 0], 2)), -BB_VEL*1.5, BB_POS*1.5)
         
         for i in range(self.T):
             self.action = self.zero_control

@@ -23,7 +23,7 @@ E−MAIL: COSTA.FERNANDES@UFABC.EDU.BR
 DESCRIPTION:
     PPO deep learning training algorithm. 
 """
-random_seed = 16
+random_seed = 666
 seed = '_velocity_seed_'+str(random_seed)
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 torch.set_num_threads(4)
@@ -143,7 +143,7 @@ def evaluate(env, agent, plotter, eval_steps=10):
 ## HYPERPARAMETERS - CHANGE IF NECESSARY ##
 lr = 0.0001
 max_timesteps = 1000
-action_std = 0.2
+action_std = 0.05
 update_timestep = 4000
 K_epochs = 80
 T = 5
@@ -250,7 +250,7 @@ for i_episode in range(1, max_episodes+1):
         file_logger.write(d1+'\t'+current_time+'\t'+str(i_episode)+'\t'+str(time.time()-PROCESS_TIME)+'\t'+str(reward_avg)+'\t'+str(time_avg)+'\n')
         file_logger.close()
         # stop training if avg_reward > solved_reward
-        if i_episode==3000:
+        if i_episode==2000:
             # reward_avg, time_avg, solved_avg = evaluate(env, ppo, plot, 200)
             # print('\rRe-evaluation \t Avg length: {} \t Avg reward: {:.2f} \t Solved: {:.2f}'.format(time_avg, reward_avg, solved_avg))
             # if solved_avg > 0.95 and reward_avg>solved_reward:
