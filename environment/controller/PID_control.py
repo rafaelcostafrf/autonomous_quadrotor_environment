@@ -1,8 +1,11 @@
 import numpy as np
+import pandas as pd
 import sys
 sys.path.append('/home/rafael/mestrado/quadrotor_environment/')
 from environment.quadrotor_env import quad, plotter
 from environment.quaternion_euler_utility import euler_quat, quat_euler
+from environment.controller.response_analyzer import response_analyzer
+from environment.controller.target_parser import target_parse, episode_n
 from mission_control.mission_control import mission
 import matplotlib.pyplot as plt
 
@@ -10,8 +13,14 @@ import matplotlib.pyplot as plt
 test_n = 0
 mission_str = 'spiral_tracking'
 
-P, I, D = 27.1, 0, 13
-P_z, I_z, D_z = 21, 0, 10
+# P, I, D = 27.1, 0, 13
+# P_z, I_z, D_z = 21, 0, 10
+# P_a, I_a, D_a = 22, 0, 12
+# P_ps, I_ps, D_ps =  1, 0, 0.1
+
+
+P, I, D = 6, 0, 3
+P_z, I_z, D_z = 6, 0, 3
 P_a, I_a, D_a = 22, 0, 12
 P_ps, I_ps, D_ps =  1, 0, 0.1
 
@@ -137,9 +146,10 @@ class pid_control():
                     plt.ylabel('position (m)')
                 plt.grid(True)
             plt.savefig('./results/pid_'+mission_str+'/position_'+str(test_n)+'.png')
+
             
             # VELOCITIES
-            plt.figure("Velocity")
+            plt.figure("Velocity") 
             
             for i in range(3):
                 plt.subplot(311+i)
@@ -178,11 +188,15 @@ class pid_control():
             plt.savefig('./results/pid_'+mission_str+'/3D_plot_'+str(test_n)+'.png')
             plt.show()
             
+            series = response_analyzer(y, target, drone.abs_sum, error_sum, drone.n)
+            episode_name = 'PD '+str(target)+' '+str(ttime)+'s'
+            results.insert(j, episode_name, series)
+            print('Ep Number: '+str(j+1))
             self.log_state = []
             self.log_target = []
             self.log_input = []
             
-        
+            # response_analyzer(y, TARGET)        
         
         
         
@@ -205,47 +219,60 @@ class pid():
 
 
     
-drone = quad(0.01, 5000, 0, direct_control=0)
+drone = quad(0.01, 5000, 5, direct_control=0)
 mission_control = mission(drone.t_step)
-mission_control.gen_trajectory(5000, 2000, np.array([10, 10, 10]), )
+indexes = ['CE', 'EOT',
+           'Over X', 'Over Y', 'Over Z',
+           'Rise X', 'Rise Y', 'Rise Z',
+           'Set X', 'Set Y', 'Set Z',
+           'SS X', 'SS Y', 'SS Z',]
 
-initial_state = np.zeros(13)
-initial_position = [0, 0, 0]
-initial_velocity = [0, 0, 0]
-initial_euler = np.array([0, 0, 0])/180*np.pi
-initial_quaternions = euler_quat(initial_euler).flatten()
-initial_angular_velocity = [0, 0, 0]
+results = pd.DataFrame(0, index=indexes, columns=([]))
 
-
-for i, (p, v) in enumerate(zip(initial_position, initial_velocity)):
-    initial_state[2*i:2*i+2] = np.array([p, v])  
-initial_state[6:10] = initial_quaternions
-initial_state[10::] = initial_angular_velocity
-
-
-drone.reset(initial_state, )
-controller = pid_control(drone)
-plot = plotter(drone, False)
-error_sum = 0
-while True:
-    error_mission = mission_control.get_error(drone.i*drone.t_step)
-    
-    xd = mission_control.trajectory[drone.i-1]
-    dxd = mission_control.velocity[drone.i-1]
-    psi_d = 0
-    
-    error_pos = drone.state[0:5:2]-xd 
-    error_vel = drone.state[1:6:2]-dxd
-    error_array = np.append(error_pos, error_vel)
-    error_sum += np.sqrt(np.sum(np.square(error_array)))    
+for j in range(episode_n()):
+    m_c, ttime, target = target_parse(j)    
+    if m_c==1:
+        mission_control.gen_trajectory(5000, int(ttime/drone.t_step), np.array(target), )
+    else:
+        mission_control.spiral_trajectory(*tuple(target))
     
     
-    action = controller.control(xd, dxd, psi_d, 0)       
-    _, _, done = drone.step(action)
-    controller.data_logger()
-
-    if done:
-        print(drone.abs_sum)
-        print(error_sum)
-        break
+    initial_state = np.zeros(13)
+    initial_position = [0, 0, 0]
+    initial_velocity = [0, 0, 0]
+    initial_euler = np.array([0, 0, 0])/180*np.pi
+    initial_quaternions = euler_quat(initial_euler).flatten()
+    initial_angular_velocity = [0, 0, 0]
     
+    
+    for i, (p, v) in enumerate(zip(initial_position, initial_velocity)):
+        initial_state[2*i:2*i+2] = np.array([p, v])  
+    initial_state[6:10] = initial_quaternions
+    initial_state[10::] = initial_angular_velocity
+    
+    
+    drone.reset(initial_state, )
+    controller = pid_control(drone)
+    plot = plotter(drone, False)
+    error_sum = 0
+    while True:
+        error_mission = mission_control.get_error(drone.i*drone.t_step)
+        
+        xd = error_mission[0:5:2]
+        dxd = error_mission[1:6:2]
+        psi_d = 0
+        
+        error_pos = drone.state[0:5:2]-xd 
+        error_vel = drone.state[1:6:2]-dxd
+        error_array = np.append(error_pos, error_vel)
+        error_sum += np.sqrt(np.sum(np.square(error_pos)))    
+        
+        action = controller.control(xd, dxd, psi_d, 0)       
+        _, _, done = drone.step(action)
+        controller.data_logger()
+    
+        if done:
+            break
+        
+results = results.T
+results.to_csv('pd_results.csv')

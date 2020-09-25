@@ -1,4 +1,6 @@
 import sys, os
+import numpy as np
+import argparse
 
 #Panda 3D Imports
 from panda3d.core import Filename
@@ -13,7 +15,7 @@ from models.world_setup import world_setup, quad_setup
 from models.camera_control import camera_control
 from computer_vision.cameras_setup import cameras
 from config.menu import menu
-
+from environment.controller.target_parser import episode_n
 """
 INF209B − TÓPICOS ESPECIAIS EM PROCESSAMENTO DE SINAIS:
 
@@ -57,14 +59,11 @@ HOVER = True
 #IMAGE POSITION ESTIMATION
 IMG_POS_DETER = False
 
-#MISSION CONTROL
-M_C = 1
-
 # NUMBER OF EPISODE TIMESTEPS 
 EPISODE_STEPS = 5000
 
 # TOTAL NUMBER OF EPISODES
-ERROR_AQS_EPISODES = 40
+ERROR_AQS_EPISODES = episode_n()
 
 # PATH TO ERROR DATALOG
 ERROR_PATH = './data/hover/' if HOVER else './data/random_initial_state/'
@@ -75,8 +74,6 @@ mydir = Filename.fromOsSpecific(mydir).getFullpath()
 
 frame_interval = 10
 cam_names = ('cam_1', )
-
-
 
 class MyApp(ShowBase):
     def __init__(self):
@@ -93,7 +90,7 @@ class MyApp(ShowBase):
     
     def run_setup(self):
         # DRONE POSITION
-        self.drone = quad_position(self, self.quad_model, self.prop_models, EPISODE_STEPS, REAL_CTRL, ERROR_AQS_EPISODES, ERROR_PATH, HOVER, M_C)
+        self.drone = quad_position(self, self.quad_model, self.prop_models, EPISODE_STEPS, REAL_CTRL, ERROR_AQS_EPISODES, ERROR_PATH, HOVER)
         
         # COMPUTER VISION
         self.cv = computer_vision(self, self.quad_model, self.drone.env, self.drone.sensor, self.drone, self.buffer_cameras.opencv_cameras[0], self.buffer_cameras.opencv_cam_cal[0], mydir, IMG_POS_DETER)     
