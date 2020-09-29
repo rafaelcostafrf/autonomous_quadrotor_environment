@@ -1,7 +1,8 @@
-win-size 1440 900
+win-size 800 800
 show-frame-rate-meter True
 sync-video False 
-
+default-near 0.01
+default-far 1000
 texture-anisotropic-degree 8
 texture-quality-level fast
 undecorated False

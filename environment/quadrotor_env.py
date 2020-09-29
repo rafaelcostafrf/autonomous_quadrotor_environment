@@ -100,7 +100,7 @@ class quad():
                                  BB_ANG, BB_ANG, 4,
                                  BB_VEL*3, BB_VEL*3, BB_VEL*3])       #Bounding Box Conditions Array
         if not PPO_TRAINING:
-            self.bb_cond = self.bb_cond*10
+            self.bb_cond = self.bb_cond*1000
         
         #Quadrotor states dimension
         self.state_size = 13       
@@ -374,8 +374,6 @@ class quad():
             state: system's state in t+t_step actuated by the action
             done: False, else the system has breached any bounding box, exceeded maximum timesteps, or reached goal.
         """""
-        if self.done:
-            print('\n----WARNING----\n done flag is TRUE, reset the environment with environment.reset() before using environment.step()\n')
         self.i += 1
                 
         
