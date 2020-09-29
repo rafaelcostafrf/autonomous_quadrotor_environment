@@ -10,7 +10,7 @@ class opencv_camera():
         self.cam = self.render.makeCamera(self.buffer)
         self.cam.setName(name)     
         self.cam.node().getLens().setFilmSize(36, 24)
-        self.cam.node().getLens().setFocalLength(45)
+        self.cam.node().getLens().setFocalLength(28)
         self.name = name
         self.render.taskMgr.add(self.set_active, name) 
         self.render.taskMgr.add(self.set_inactive, name)
@@ -23,7 +23,8 @@ class opencv_camera():
 
         if len(image) > 0:
             image = np.reshape(image, (tex.getYSize(), tex.getXSize(), 4))
-            image = cv.resize(image, (0,0), fx=0.5, fy=0.5)
+            image = cv.resize(image, (0,0), fx=0.20, fy=0.20)
+
             # image = cv.flip(image, 0)
             return True, image
         else:
