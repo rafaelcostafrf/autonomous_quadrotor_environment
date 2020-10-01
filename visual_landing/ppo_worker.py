@@ -2,7 +2,7 @@
 import torch
 import cv2 as cv
 import numpy as np
-
+import time
 
 # LANDING SETUP
 from visual_landing.ppo_aux import PPO
@@ -13,12 +13,12 @@ TIME_STEP = 0.01
 IMAGE_LEN = np.array([160, 160])
             
 # LANDING POLICY
-LDG_POLICY = PPO(0, 3)
+
 VELOCITY_SCALE = [1, 1, 4]
 
 
 class ppo_worker():
-    def __init__(self, render, quad_workers, cv_cam):
+    def __init__(self, render, quad_workers, cv_cam, ldg_policy):
         
         # MODELS AND RENDER SETUP
         self.render = render
@@ -26,18 +26,8 @@ class ppo_worker():
         self.prop_models = render.prop_models
         self.quad_workers = quad_workers
         self.a = np.zeros(4)
-        self.ldg_policy = LDG_POLICY
-        
-        #CAMERA SETUP
-        self.render.quad_model.setPos(0, 0, 0)
-        self.render.quad_model.setHpr(0, 0, 0)
+        self.ldg_policy = ldg_policy
         self.cv_cam = cv_cam
-        self.cv_cam.cam.setPos(0, 0, 0)
-        self.cv_cam.cam.setHpr(0, 270, 0)
-        self.cv_cam.cam.reparentTo(self.render.quad_model)
-
-        # QUAD WORKERS SETUP
-        self.quad_workers = quad_workers
         
     def render_position(self, coordinates, marker_position):
 
@@ -57,8 +47,7 @@ class ppo_worker():
 
         for prop, a in zip(self.prop_models, self.a):
             prop.setHpr(a, 0, 0)
-        
-        self.render.graphicsEngine.renderFrame()
+
         
     def take_picture(self):
         ret, image = self.cv_cam.get_image() 
@@ -68,7 +57,7 @@ class ppo_worker():
             return None
                 
         
-    def wait_until_ready(self, task):
+    def wait_until_ready(self, task):        
         for quad_worker in self.quad_workers:
             if quad_worker.update[0] and not quad_worker.visual_done:
                 self.step(quad_worker) 
@@ -76,24 +65,28 @@ class ppo_worker():
         return task.cont
         
         
-    def step(self, quad_worker):           
-       
+    def step(self, quad_worker):                   
+        
         coordinates = quad_worker.update[1]
-        
+
         quad_worker.reward, quad_worker.last_shaping, quad_worker.visual_done = visual_reward(quad_worker.marker_position, quad_worker.quad_env.state[0:5:2], quad_worker.quad_env.state[1:6:2], quad_worker.vel_error, quad_worker.last_shaping)
-                    
-        quad_worker.memory.rewards.append(quad_worker.reward)
-        
-        quad_worker.memory.is_terminals.append(quad_worker.visual_done)
         
         self.render_position(coordinates, quad_worker.marker_position)
         
         image = self.take_picture()
-        
-        quad_worker.image_roll(image)
-        
-        network_in = np.array([quad_worker.image_1, quad_worker.image_2, quad_worker.image_3])
 
-        visual_action = LDG_POLICY.select_action(network_in, quad_worker.memory)
+        quad_worker.image_roll(image)  
         
-        quad_worker.vel_error = visual_action*VELOCITY_SCALE            
+        if quad_worker.ppo_calls >= 3:
+        
+            quad_worker.memory.rewards.append(quad_worker.reward)
+            
+            quad_worker.memory.is_terminals.append(quad_worker.visual_done)    
+            
+            network_in = np.array([quad_worker.image_1, quad_worker.image_2, quad_worker.image_3])
+            
+            visual_action = self.ldg_policy.select_action(network_in, quad_worker.memory)
+            
+            quad_worker.vel_error = visual_action*VELOCITY_SCALE            
+        
+        quad_worker.ppo_calls += 1

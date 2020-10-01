@@ -85,7 +85,7 @@ class MyApp(ShowBase):
         
         # OPENCV CAMERAS SETUP
         self.buffer_cameras = cameras(self, frame_interval, cam_names)  
-    
+        
     def run_setup(self):
         
         # COMPUTER VISION
@@ -95,4 +95,5 @@ class MyApp(ShowBase):
         camera_control(self, self.render) 
                 
 app = MyApp()
+
 app.run()

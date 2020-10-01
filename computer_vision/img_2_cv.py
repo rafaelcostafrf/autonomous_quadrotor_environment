@@ -6,7 +6,7 @@ class opencv_camera():
         self.frame_int = frame_interval
         self.render = render   
         window_size = (self.render.win.getXSize(), self.render.win.getYSize())     
-        self.buffer = self.render.win.makeTextureBuffer(name, *window_size, None, True)
+        self.buffer = self.render.win.makeTextureBuffer(name, 160, 160, None, True)
         self.cam = self.render.makeCamera(self.buffer)
         self.cam.setName(name)     
         self.cam.node().getLens().setFilmSize(36, 24)
@@ -17,15 +17,15 @@ class opencv_camera():
         self.buffer.setActive(1)
         
     def get_image(self):
+        self.render.graphicsEngine.renderFrame()
         tex = self.buffer.getTexture()  
         img = tex.getRamImage()
         image = np.frombuffer(img, np.uint8)
 
         if len(image) > 0:
             image = np.reshape(image, (tex.getYSize(), tex.getXSize(), 4))
-            image = cv.resize(image, (0,0), fx=0.2, fy=0.2)
-
             image = cv.flip(image, 0)
+
             return True, image
         else:
             return False, None

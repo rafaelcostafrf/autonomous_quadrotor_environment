@@ -3,9 +3,9 @@ import torch
 import sys
 import numpy as np
 import cv2 as cv
-
+import time
 # ENVIRONMENT AND CONTROLLER SETUP
-from environment.quadrotor_env import quad
+from environment.quadrotor_env_opt import quad
 from environment.controller.model import ActorCritic
 from environment.controller.dl_auxiliary import dl_in_gen
 
@@ -64,6 +64,7 @@ class quad_worker():
         #TASK MANAGING
         self.wait_for_task = False
         self.visual_done = False
+        self.ppo_calls = 0
         
         #LDG TRAINING
         self.vel_error = np.zeros(3)
@@ -86,13 +87,16 @@ class quad_worker():
         self.image_1 = image
          
     def step(self, task):
+        
         if self.visual_done:
             return task.done
             
-        if not self.wait_for_task:
+        elif not self.wait_for_task:
             self.internal_frame += 1
             # LOWER CONTROL STEP  
+
             crtl_action = CRTL_POLICY.actor(torch.FloatTensor(self.network_in).to(device)).cpu().detach().numpy()
+
             states, _, done = self.quad_env.step(crtl_action)
             
             # CONTROL DIFFERENCE
@@ -106,8 +110,9 @@ class quad_worker():
             self.network_in = AUX_DL.dl_input(states-state_error, [crtl_action])
                     
             coordinates = np.concatenate((states[0, 0:5:2], self.quad_env.ang, np.zeros(4))) 
-          
-            if self.internal_frame % TASK_INTERVAL_STEPS == 9:
+            
+
+            if self.internal_frame % TASK_INTERVAL_STEPS == 0:
                 self.update = [1, coordinates]
                 self.wait_for_task = True
                 return task.cont 
