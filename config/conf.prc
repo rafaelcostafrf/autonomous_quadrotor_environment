@@ -6,4 +6,6 @@ default-far 1000
 texture-anisotropic-degree 8
 texture-quality-level fast
 undecorated False
-
+want-pstats 1
+task-timer-verbose 1
+pstats-tasks 1
