@@ -215,6 +215,7 @@ class computer_vision():
                     self.memory.rewards.append(self.reward)
                     self.memory.is_terminals.append(self.visual_done)                
                     visual_action = self.visual_ppo.select_action(network_in, self.memory)
+                    
                     self.action_hist.append(visual_action)
                     self.reward_hist.append(self.reward)
                     

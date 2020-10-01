@@ -12,9 +12,9 @@ class opencv_camera():
         self.cam.node().getLens().setFilmSize(36, 24)
         self.cam.node().getLens().setFocalLength(28)
         self.name = name
-        self.render.taskMgr.add(self.set_active, name) 
-        self.render.taskMgr.add(self.set_inactive, name)
-        self.buffer.setActive(0)
+        # self.render.taskMgr.add(self.set_active, name) 
+        # self.render.taskMgr.add(self.set_inactive, name)
+        self.buffer.setActive(1)
         
     def get_image(self):
         tex = self.buffer.getTexture()  
@@ -23,9 +23,9 @@ class opencv_camera():
 
         if len(image) > 0:
             image = np.reshape(image, (tex.getYSize(), tex.getXSize(), 4))
-            image = cv.resize(image, (0,0), fx=0.20, fy=0.20)
+            image = cv.resize(image, (0,0), fx=0.2, fy=0.2)
 
-            # image = cv.flip(image, 0)
+            image = cv.flip(image, 0)
             return True, image
         else:
             return False, None

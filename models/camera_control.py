@@ -19,8 +19,10 @@ class camera_control():
     def camera_change(self):
         if self.camera_init:
             self.env.cam.reparentTo(self.env.quad_model)
-            self.env.cam.setPos(0, 0, 0.0)
-            self.env.cam.setHpr(0, 270, 0)           
+            self.env.cam.setPos(0, 0, 0.01)
+            self.env.cam.setHpr(0, 270, 0)       
+            self.env.cam.node().getLens().setFilmSize(36, 24)
+            self.env.cam.node().getLens().setFocalLength(28)
             self.camera_init = False
         else:
             self.camera_reset()

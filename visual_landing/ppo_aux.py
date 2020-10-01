@@ -139,33 +139,30 @@ class PPO:
 
 
 
-def evaluate(env, agent, plotter, eval_steps=10):
-    n_solved = 0
-    rewards = 0
-    time_steps = 0
-    for i in range(eval_steps):
-        state, action = env.reset()
-        done = False
-        while True:
-            time_steps += 1
-            network_in = aux_dl.dl_input(state, action)    
-            action = agent.policy.actor(torch.FloatTensor(network_in).to(device)).cpu().detach().numpy()  
-            state, reward, done = env.step(action)
-            action = np.array([action])
-            rewards += reward
-            if i == eval_steps-1:
-                plotter.add()
-            if done:
-                n_solved += env.solved
-                break
-    time_mean = time_steps/eval_steps
-    solved_mean = n_solved/eval_steps        
-    reward_mean = rewards/eval_steps
-    plotter.plot()
-    return reward_mean, time_mean, solved_mean
-    
-
-
+# def evaluate(env, agent, plotter, eval_steps=10):
+#     n_solved = 0
+#     rewards = 0
+#     time_steps = 0
+#     for i in range(eval_steps):
+#         state, action = env.reset()
+#         done = False
+#         while True:
+#             time_steps += 1
+#             network_in = aux_dl.dl_input(state, action)    
+#             action = agent.policy.actor(torch.FloatTensor(network_in).to(device)).cpu().detach().numpy()  
+#             state, reward, done = env.step(action)
+#             action = np.array([action])
+#             rewards += reward
+#             if i == eval_steps-1:
+#                 plotter.add()
+#             if done:
+#                 n_solved += env.solved
+#                 break
+#     time_mean = time_steps/eval_steps
+#     solved_mean = n_solved/eval_steps        
+#     reward_mean = rewards/eval_steps
+#     plotter.plot()
+#     return reward_mean, time_mean, solved_mean  
 # # creating environment
 # env = quad(time_int_step, max_timesteps, euler=0, direct_control=1, T=T)
 # state_dim = 15*T
