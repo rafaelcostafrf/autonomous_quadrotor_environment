@@ -12,6 +12,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 TIME_STEP = 0.01
 IMAGE_LEN = np.array([160, 160])
+MAX_PPO_CALLS = 150
             
 # LANDING POLICY
 
@@ -75,7 +76,10 @@ class ppo_worker():
         
         self.render_position(coordinates, quad_worker.marker_position)
         
-        image = self.take_picture()
+        if quad_worker.ppo_calls >= MAX_PPO_CALLS:
+            quad_worker.visual_done = True 
+
+        image = self.take_picture()/255.0
 
         quad_worker.image_roll(image)  
 
