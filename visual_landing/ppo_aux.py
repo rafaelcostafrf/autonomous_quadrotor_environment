@@ -62,11 +62,11 @@ class Memory:
         self.is_terminals = []
     
     def clear_memory(self):
-        del self.actions[:]
-        del self.states[:]
-        del self.logprobs[:]
-        del self.rewards[:]
-        del self.is_terminals[:]
+        del self.actions
+        del self.states
+        del self.logprobs
+        del self.rewards
+        del self.is_terminals
 
 class PPO:
     def __init__(self, state_dim, action_dim):
@@ -87,13 +87,15 @@ class PPO:
             self.policy_old.load_state_dict(torch.load('./PPO_landing_old.pth',map_location=device))
             print('Saved Landing Policy loaded')
         except:
+            torch.save(self.policy.state_dict(), './PPO_landing.pth')
+            torch.save(self.policy_old.state_dict(), './PPO_landing_old.pth')
             print('New Landing Policy generated')
             pass
         
         self.MseLoss = nn.MSELoss()
     
     def select_action(self, state, memory):
-        state = torch.FloatTensor([state]).to(device)
+        state = torch.FloatTensor([state]).to(device).detach()
         return self.policy_old.act(state, memory).cpu().data.numpy().flatten()
     
     def update(self, memory):
@@ -111,6 +113,7 @@ class PPO:
         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
         
         # convert list to tensor
+
         old_states = torch.squeeze(torch.stack(memory.states).to(device), 1).detach()
         old_actions = torch.squeeze(torch.stack(memory.actions).to(device), 1).detach()
         old_logprobs = torch.squeeze(torch.stack(memory.logprobs), 1).to(device).detach()
@@ -135,8 +138,9 @@ class PPO:
             self.optimizer.step()
             print('\rTraining progress: {:.2%}          '.format(epoch/self.K_epochs),end='')
         torch.save(self.policy.state_dict(), './PPO_landing.pth')
-        torch.save(self.policy_old.state_dict(), './PPO_landing.pth')
+        torch.save(self.policy_old.state_dict(), './PPO_landing_old.pth')
         print('Policy Saved')
+        torch.cuda.empty_cache()
         # Copy new weights into old policy:
         self.policy_old.load_state_dict(self.policy.state_dict())
 

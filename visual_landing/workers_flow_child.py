@@ -1,18 +1,16 @@
 import torch
-import numpy as np
 import time
+import sys
 
 from visual_landing.quad_worker import quad_worker
-from visual_landing.ppo_worker import ppo_worker
+from visual_landing.ppo_worker_child import ppo_worker
 
 # LANDING SETUP
-from visual_landing.ppo_aux import PPO
+from visual_landing.ppo_aux_child import PPO
 device = torch.device("cpu")
 
-N_WORKERS = 2
-BATCH_SIZE = 500
-
-from panda3d.core import Thread
+N_WORKERS = 1
+BATCH_SIZE = 270
 
 class Memory:
     def __init__(self):
@@ -23,11 +21,11 @@ class Memory:
         self.is_terminals = []
     
     def clear_memory(self):
-        del self.actions[:]
-        del self.states[:]
-        del self.logprobs[:]
-        del self.rewards[:]
-        del self.is_terminals[:]
+        del self.actions
+        del self.states
+        del self.logprobs
+        del self.rewards
+        del self.is_terminals
 
 class work_flow():
     
@@ -37,7 +35,7 @@ class work_flow():
         self.MEMORY = Memory()
         self.render = render
         self.cv_cam = cv_cam
-
+        self.ldg_policy = PPO(3, 3)
         
         for i in range(N_WORKERS):
             self.render.taskMgr.setupTaskChain(str(i), numThreads = 1, tickClock = None,
@@ -73,9 +71,13 @@ class work_flow():
         self.workers = []
         for i in range(N_WORKERS):
             self.workers.append(quad_worker(self.render))
-            self.render.taskMgr.add(self.workers[i].step, 'quad_worker'+str(i), taskChain = str(i))            
-        
-        self.ldg_policy = PPO(0, 3)
+            self.render.taskMgr.add(self.workers[i].step, 'quad_worker'+str(i), taskChain = str(i))  
+        try:
+            self.ldg_policy.policy.load_state_dict(torch.load('./PPO_landing.pth', map_location=device))
+            self.ldg_policy.policy_old.load_state_dict(torch.load('./PPO_landing_old.pth', map_location=device))
+        except:
+            print("Could Not Load Father Landing Policy")
+            sys.exit()
         self.ppo_worker = ppo_worker(self.render, self.workers, self.cv_cam, self.ldg_policy)     
         self.render.taskMgr.add(self.ppo_worker.wait_until_ready, 'ppo_worker'+str(i) , taskChain = 'ppo')
     
@@ -112,7 +114,8 @@ class work_flow():
                 f = open(child_name+'.txt','w')
                 f.write(str(1))
                 f.close()
-                
+            for worker in self.workers:
+                worker.memory.clear_memory()    
             self.reset_workers()
         return task.cont
         
