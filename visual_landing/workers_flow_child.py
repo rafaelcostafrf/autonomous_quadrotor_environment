@@ -7,10 +7,10 @@ from visual_landing.ppo_worker import ppo_worker
 
 # LANDING SETUP
 from visual_landing.ppo_aux import PPO
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 
 N_WORKERS = 2
-BATCH_SIZE = 1000
+BATCH_SIZE = 500
 
 from panda3d.core import Thread
 

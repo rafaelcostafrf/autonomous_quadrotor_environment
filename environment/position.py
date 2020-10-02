@@ -17,7 +17,7 @@ from mission_control.mission_control import mission
 ## PPO SETUP ##
 time_int_step = 0.01
 T = 5
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 test_n = 0
 
 class quad_position():
