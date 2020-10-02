@@ -25,8 +25,8 @@ DESCRIPTION:
 """
 random_seed = 666
 seed = '_velocity_seed_'+str(random_seed)
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-torch.set_num_threads(4)
+device = torch.device("cpu")
+torch.set_num_threads(16)
 PROCESS_TIME = time.time()
 
 class Memory:
