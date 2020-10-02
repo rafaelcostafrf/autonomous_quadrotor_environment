@@ -7,7 +7,7 @@ from panda3d.core import loadPrcFile
 loadPrcFile('./config/conf.prc')
 
 #Custom Functions
-from visual_landing.workers_flow import work_flow
+from visual_landing.workers_flow_child import work_flow
 from visual_landing.ppo_world_setup import world_setup, quad_setup
 from models.camera_control import camera_control
 from computer_vision.cameras_setup import cameras
@@ -73,9 +73,27 @@ mydir = Filename.fromOsSpecific(mydir).getFullpath()
 frame_interval = 10
 cam_names = ('cam_1', )
 
-f = open('./child_processes.txt', 'w')
+
+
+f = open('child_processes.txt', 'r+')
+try:
+    lines = f.readlines()
+    last_line = lines[-1]
+    CHILD_PROCESS = int(last_line)+1
+    if len(lines) == 1:
+        f.write(f.read()+'\n'+str(CHILD_PROCESS)+'\n')   
+    else:
+        f.write(f.read()+str(CHILD_PROCESS)+'\n')   
+except:
+    CHILD_PROCESS = 0
+    f.write(str(CHILD_PROCESS))
 f.close()
-        
+
+
+data = open('./child_data/'+str(CHILD_PROCESS)+'.txt', 'w')
+data.write(str(0))
+data.close()
+
 class MyApp(ShowBase):
     def __init__(self):
         
@@ -92,7 +110,7 @@ class MyApp(ShowBase):
     def run_setup(self):
         
         # COMPUTER VISION
-        self.ldg_algorithm = work_flow(self, self.buffer_cameras.opencv_cameras[0])        
+        self.ldg_algorithm = work_flow(self, self.buffer_cameras.opencv_cameras[0], CHILD_PROCESS)        
         
         # CAMERA CONTROL
         camera_control(self, self.render) 

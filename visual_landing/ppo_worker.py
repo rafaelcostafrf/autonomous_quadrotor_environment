@@ -3,6 +3,7 @@ import torch
 import cv2 as cv
 import numpy as np
 import time
+from panda3d.core import Thread
 
 # LANDING SETUP
 from visual_landing.ppo_aux import PPO
@@ -61,12 +62,13 @@ class ppo_worker():
         for quad_worker in self.quad_workers:
             if quad_worker.update[0] and not quad_worker.visual_done:
                 self.step(quad_worker) 
+                quad_worker.update = [0, None]
                 quad_worker.wait_for_task = False 
         return task.cont
         
         
     def step(self, quad_worker):                   
-        
+
         coordinates = quad_worker.update[1]
 
         quad_worker.reward, quad_worker.last_shaping, quad_worker.visual_done = visual_reward(quad_worker.marker_position, quad_worker.quad_env.state[0:5:2], quad_worker.quad_env.state[1:6:2], quad_worker.vel_error, quad_worker.last_shaping)
@@ -76,7 +78,7 @@ class ppo_worker():
         image = self.take_picture()
 
         quad_worker.image_roll(image)  
-        
+
         if quad_worker.ppo_calls >= 3:
         
             quad_worker.memory.rewards.append(quad_worker.reward)

@@ -1,5 +1,5 @@
-import numpy as np
 import torch
+import numpy as np
 import time
 
 from visual_landing.quad_worker import quad_worker
@@ -31,12 +31,13 @@ class Memory:
 
 class work_flow():
     
-    def __init__(self, render, cv_cam):
+    def __init__(self, render, cv_cam, child_number):
         
+        self.child_number = child_number
         self.MEMORY = Memory()
         self.render = render
         self.cv_cam = cv_cam
-        self.ldg_policy = PPO(0, 3)
+
         
         for i in range(N_WORKERS):
             self.render.taskMgr.setupTaskChain(str(i), numThreads = 1, tickClock = None,
@@ -61,17 +62,27 @@ class work_flow():
        
         
     def reset_workers(self):
+        while True:
+            f = open('./child_data/'+str(self.child_number)+'.txt', 'r')
+            if int(f.read()) == 0:
+                break
+            else:
+                time.sleep(3)
+            
+            
         self.workers = []
         for i in range(N_WORKERS):
             self.workers.append(quad_worker(self.render))
             self.render.taskMgr.add(self.workers[i].step, 'quad_worker'+str(i), taskChain = str(i))            
         
+        self.ldg_policy = PPO(0, 3)
         self.ppo_worker = ppo_worker(self.render, self.workers, self.cv_cam, self.ldg_policy)     
         self.render.taskMgr.add(self.ppo_worker.wait_until_ready, 'ppo_worker'+str(i) , taskChain = 'ppo')
     
 
     def episode_done_check(self, task):
         done = True
+        child_name = './child_data/'+str(self.child_number)
 
         for worker in self.workers:
             if not worker.visual_done:
@@ -87,32 +98,21 @@ class work_flow():
                 self.MEMORY.logprobs.extend(worker.memory.logprobs)
                 self.MEMORY.rewards.extend(worker.memory.rewards)
                 self.MEMORY.is_terminals.extend(worker.memory.is_terminals)
+            
                 
+            if len(self.MEMORY.rewards)>=BATCH_SIZE:
+                child_name = './child_data/'+str(self.child_number)
                 
-                if len(self.MEMORY.rewards) >= BATCH_SIZE:
-                    f = open('child_processes.txt', 'r')
-                    lines = f.readline()
-                    f.close()
-                    for line in lines:
-                        while True:
-                            s = open('./child_data/'+line+'.txt', 'r')                            
-                            a = int(s.read())
-                            s.close()
-                            if a == 1:
-                                child_name = './child_data/'+line
-                                self.MEMORY.actions.extend(torch.load(child_name+'actions.tch'))
-                                self.MEMORY.states.extend(torch.load(child_name+'states.tch'))
-                                self.MEMORY.logprobs.extend(torch.load(child_name+'logprobs.tch'))
-                                self.MEMORY.rewards.extend(torch.load(child_name+'rewards.tch'))
-                                self.MEMORY.is_terminals.extend(torch.load(child_name+'is_terminals.tch'))
-                                break
-                            else:                            
-                                time.sleep(3)
-                    self.ldg_policy.update(self.MEMORY)
-                    s = open('./child_data/'+line+'.txt', 'w')    
-                    s.write(str(0))
-                    s.close()
-                    self.MEMORY.clear_memory()
+                torch.save(self.MEMORY.actions, child_name+'actions.tch')            
+                torch.save(self.MEMORY.states, child_name+'states.tch')  
+                torch.save(self.MEMORY.logprobs, child_name+'logprobs.tch')  
+                torch.save(self.MEMORY.rewards, child_name+'rewards.tch')  
+                torch.save(self.MEMORY.is_terminals, child_name+'is_terminals.tch')  
+                self.MEMORY.clear_memory()
+                f = open(child_name+'.txt','w')
+                f.write(str(1))
+                f.close()
+                
             self.reset_workers()
         return task.cont
         
