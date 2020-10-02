@@ -8,14 +8,14 @@ import time
 from environment.quadrotor_env_opt import quad
 from environment.controller.model import ActorCritic
 from environment.controller.dl_auxiliary import dl_in_gen
-
+from panda3d.core import Thread
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 T = 5
 TIME_STEP = 0.01
 TOTAL_STEPS = 1500
 IMAGE_LEN = np.array([160, 160])
-TASK_INTERVAL_STEPS = 10
+TASK_INTERVAL_STEPS = 30
 
 
 #CONTROL POLICY
@@ -56,8 +56,8 @@ class quad_worker():
         #CONTROLLER POLICY
         self.quad_env = quad(TIME_STEP, TOTAL_STEPS, 1, T)
         states, action = self.quad_env.reset(np.array([0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]))
-
-        self.network_in = AUX_DL.dl_input(states, action)
+        self.aux_dl =  dl_in_gen(T, 13, 4)
+        self.network_in = self.aux_dl.dl_input(states, action)
         self.image_zeros() 
         self.memory = Memory()
         
@@ -90,34 +90,37 @@ class quad_worker():
         
         if self.visual_done:
             return task.done
-            
-        elif not self.wait_for_task:
-            self.internal_frame += 1
-            # LOWER CONTROL STEP  
-
-            crtl_action = CRTL_POLICY.actor(torch.FloatTensor(self.network_in).to(device)).cpu().detach().numpy()
-
-            states, _, done = self.quad_env.step(crtl_action)
-            
-            # CONTROL DIFFERENCE
-            error_smoothing = self.vel_error/TASK_INTERVAL_STEPS*(self.internal_frame%TASK_INTERVAL_STEPS)
-
-            state_error = np.zeros([1,14])
-
-            for i in range(3):
-                state_error[0, 1+i*2] = error_smoothing[i]
-            
-            self.network_in = AUX_DL.dl_input(states-state_error, [crtl_action])
-                    
-            coordinates = np.concatenate((states[0, 0:5:2], self.quad_env.ang, np.zeros(4))) 
-            
-
-            if self.internal_frame % TASK_INTERVAL_STEPS == 0:
-                self.update = [1, coordinates]
-                self.wait_for_task = True
-                return task.cont 
+        
+        if not self.wait_for_task:
+            for i in range(TASK_INTERVAL_STEPS):
                 
-            self.update = [0, None]
-            return task.cont
+                self.internal_frame += 1
+                # LOWER CONTROL STEP  
+    
+                crtl_action = CRTL_POLICY.actor(torch.FloatTensor(self.network_in).to(device)).cpu().detach().numpy()
+    
+                states, _, done = self.quad_env.step(crtl_action)
+                
+                # CONTROL DIFFERENCE
+                error_smoothing = self.vel_error/TASK_INTERVAL_STEPS*(self.internal_frame%TASK_INTERVAL_STEPS)
+    
+                state_error = np.zeros([1,14])
+                state_error[0, 1] = self.vel_error[0]
+                state_error[0, 3] = self.vel_error[1]
+                state_error[0, 5] = self.vel_error[2]
+                
+                # CONTROL DIFFERENCE
+                error_smoothing = states + state_error/TASK_INTERVAL_STEPS*(self.internal_frame%TASK_INTERVAL_STEPS)
+                
+                self.network_in = self.aux_dl.dl_input(error_smoothing, [crtl_action])
+                        
+                coordinates = np.concatenate((states[0, 0:5:2], self.quad_env.ang, np.zeros(4))) 
+                
+                Thread.considerYield()
+                
+            self.update = [1, coordinates]
+            self.wait_for_task = True
+
+            return task.cont 
         else:
             return task.cont

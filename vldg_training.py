@@ -73,6 +73,9 @@ mydir = Filename.fromOsSpecific(mydir).getFullpath()
 frame_interval = 10
 cam_names = ('cam_1', )
 
+f = open('./child_processes.txt', 'w')
+f.close()
+        
 class MyApp(ShowBase):
     def __init__(self):
         
