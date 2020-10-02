@@ -83,9 +83,9 @@ class ActorCritic(nn.Module):
         action = dist.sample()
         action_logprob = dist.log_prob(action)
         
-        memory.states.append(state)
-        memory.actions.append(action)
-        memory.logprobs.append(action_logprob)
+        memory.states.append(state.detach())
+        memory.actions.append(action.detach())
+        memory.logprobs.append(action_logprob.detach())
         
         return action.detach()
     
