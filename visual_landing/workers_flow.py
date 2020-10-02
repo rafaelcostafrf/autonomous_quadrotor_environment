@@ -10,7 +10,7 @@ from visual_landing.ppo_aux import PPO
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 N_WORKERS = 2
-BATCH_SIZE = 1000
+BATCH_SIZE = 600
 
 from panda3d.core import Thread
 
@@ -91,15 +91,15 @@ class work_flow():
                 
                 if len(self.MEMORY.rewards) >= BATCH_SIZE:
                     f = open('child_processes.txt', 'r')
-                    lines = f.readline()
+                    lines = f.readlines()
                     f.close()
                     for line in lines:
                         while True:
-                            s = open('./child_data/'+line+'.txt', 'r')                            
+                            s = open('./child_data/'+line.splitlines()[0]+'.txt', 'r')                            
                             a = int(s.read())
                             s.close()
                             if a == 1:
-                                child_name = './child_data/'+line
+                                child_name = './child_data/'+line.splitlines()[0]
                                 self.MEMORY.actions.extend(torch.load(child_name+'actions.tch'))
                                 self.MEMORY.states.extend(torch.load(child_name+'states.tch'))
                                 self.MEMORY.logprobs.extend(torch.load(child_name+'logprobs.tch'))
@@ -108,10 +108,13 @@ class work_flow():
                                 break
                             else:                            
                                 time.sleep(3)
+                    print(self.MEMORY.actions)
                     self.ldg_policy.update(self.MEMORY)
-                    s = open('./child_data/'+line+'.txt', 'w')    
-                    s.write(str(0))
-                    s.close()
+                    
+                    for line in lines:
+                        s = open('./child_data/'+line.splitlines()[0]+'.txt', 'w')    
+                        s.write(str(0))
+                        s.close()
                     self.MEMORY.clear_memory()
             self.reset_workers()
         return task.cont

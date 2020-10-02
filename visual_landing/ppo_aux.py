@@ -134,6 +134,9 @@ class PPO:
             loss.mean().backward()
             self.optimizer.step()
             print('\rTraining progress: {:.2%}          '.format(epoch/self.K_epochs),end='')
+        torch.save(self.policy.state_dict(), './PPO_landing.pth')
+        torch.save(self.policy_old.state_dict(), './PPO_landing.pth')
+        print('Policy Saved')
         # Copy new weights into old policy:
         self.policy_old.load_state_dict(self.policy.state_dict())
 
