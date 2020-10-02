@@ -15,7 +15,7 @@ T = 5
 TIME_STEP = 0.01
 TOTAL_STEPS = 1500
 IMAGE_LEN = np.array([160, 160])
-TASK_INTERVAL_STEPS = 30
+TASK_INTERVAL_STEPS = 10
 
 
 #CONTROL POLICY
@@ -40,11 +40,11 @@ class Memory:
         self.is_terminals = []
     
     def clear_memory(self):
-        del self.actions[:]
-        del self.states[:]
-        del self.logprobs[:]
-        del self.rewards[:]
-        del self.is_terminals[:]
+        del self.actions
+        del self.states
+        del self.logprobs
+        del self.rewards
+        del self.is_terminals
 
             
 class quad_worker():

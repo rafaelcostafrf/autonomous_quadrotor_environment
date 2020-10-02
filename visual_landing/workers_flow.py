@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 import time
 
@@ -9,10 +8,8 @@ from visual_landing.ppo_worker import ppo_worker
 from visual_landing.ppo_aux import PPO
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-N_WORKERS = 2
-BATCH_SIZE = 600
-
-from panda3d.core import Thread
+N_WORKERS = 1
+BATCH_SIZE = 300
 
 class Memory:
     def __init__(self):
@@ -23,12 +20,12 @@ class Memory:
         self.is_terminals = []
     
     def clear_memory(self):
-        del self.actions[:]
-        del self.states[:]
-        del self.logprobs[:]
-        del self.rewards[:]
-        del self.is_terminals[:]
-
+        del self.actions
+        del self.states
+        del self.logprobs
+        del self.rewards
+        del self.is_terminals
+        
 class work_flow():
     
     def __init__(self, render, cv_cam):
@@ -100,22 +97,49 @@ class work_flow():
                             s.close()
                             if a == 1:
                                 child_name = './child_data/'+line.splitlines()[0]
-                                self.MEMORY.actions.extend(torch.load(child_name+'actions.tch'))
-                                self.MEMORY.states.extend(torch.load(child_name+'states.tch'))
-                                self.MEMORY.logprobs.extend(torch.load(child_name+'logprobs.tch'))
-                                self.MEMORY.rewards.extend(torch.load(child_name+'rewards.tch'))
-                                self.MEMORY.is_terminals.extend(torch.load(child_name+'is_terminals.tch'))
+                               
+                                actions_temp = torch.load(child_name+'actions.tch')
+                                for i, action in enumerate(actions_temp):
+                                    actions_temp[i] = action.to(device).detach()
+                                    
+                                states_temp = torch.load(child_name+'states.tch')
+                                for i, state in enumerate(states_temp):
+                                    states_temp[i] = state.to(device).detach()
+                                    
+                                logprobs_temp = torch.load(child_name+'logprobs.tch')
+                                for i, logprob in enumerate(logprobs_temp):
+                                    logprobs_temp[i] = logprob.to(device).detach()
+                                    
+                                rewards_temp = torch.load(child_name+'rewards.tch')
+
+                               	is_terminals_temp = torch.load(child_name+'is_terminals.tch')
+
+
+                                
+                                self.MEMORY.actions.extend(actions_temp)
+                                self.MEMORY.states.extend(states_temp)
+                                self.MEMORY.logprobs.extend(logprobs_temp)
+                                self.MEMORY.rewards.extend(rewards_temp)
+                                self.MEMORY.is_terminals.extend(is_terminals_temp)
+                                
+                                del actions_temp
+                                del states_temp
+                                del logprobs_temp
+                                del rewards_temp
+                                del is_terminals_temp
                                 break
                             else:                            
                                 time.sleep(3)
-                    print(self.MEMORY.actions)
-                    self.ldg_policy.update(self.MEMORY)
-                    
+                    print(len(self.MEMORY.actions))
+                    self.ldg_policy.update(self.MEMORY)                    
                     for line in lines:
                         s = open('./child_data/'+line.splitlines()[0]+'.txt', 'w')    
                         s.write(str(0))
                         s.close()
                     self.MEMORY.clear_memory()
+                    torch.cuda.empty_cache()
+            for worker in self.workers:
+                worker.memory.clear_memory()
             self.reset_workers()
         return task.cont
         
