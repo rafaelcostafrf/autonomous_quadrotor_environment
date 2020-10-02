@@ -1,4 +1,7 @@
+import numpy as np
 import torch
+import time
+
 from visual_landing.quad_worker import quad_worker
 from visual_landing.ppo_worker import ppo_worker
 
@@ -6,8 +9,10 @@ from visual_landing.ppo_worker import ppo_worker
 from visual_landing.ppo_aux import PPO
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-N_WORKERS = 3
-BATCH_SIZE = 5000
+N_WORKERS = 2
+BATCH_SIZE = 1000
+
+from panda3d.core import Thread
 
 class Memory:
     def __init__(self):
@@ -33,10 +38,14 @@ class work_flow():
         self.cv_cam = cv_cam
         self.ldg_policy = PPO(0, 3)
         
-        for i in range(N_WORKERS+1):
+        for i in range(N_WORKERS):
             self.render.taskMgr.setupTaskChain(str(i), numThreads = 1, tickClock = None,
                                    threadPriority = None, frameBudget = None,
                                    frameSync = None, timeslicePriority = None)
+
+        self.render.taskMgr.setupTaskChain('ppo', numThreads = 1, tickClock = None,
+                               threadPriority = None, frameBudget = 1,
+                               frameSync = None, timeslicePriority = None)
 
         self.reset_workers()
         self.render.taskMgr.add(self.episode_done_check, 'done_check')
@@ -58,7 +67,7 @@ class work_flow():
             self.render.taskMgr.add(self.workers[i].step, 'quad_worker'+str(i), taskChain = str(i))            
         
         self.ppo_worker = ppo_worker(self.render, self.workers, self.cv_cam, self.ldg_policy)     
-        self.render.taskMgr.add(self.ppo_worker.wait_until_ready, 'ppo_worker'+str(i) , taskChain = str(N_WORKERS+1))
+        self.render.taskMgr.add(self.ppo_worker.wait_until_ready, 'ppo_worker'+str(i) , taskChain = 'ppo')
     
 
     def episode_done_check(self, task):
@@ -78,8 +87,31 @@ class work_flow():
                 self.MEMORY.logprobs.extend(worker.memory.logprobs)
                 self.MEMORY.rewards.extend(worker.memory.rewards)
                 self.MEMORY.is_terminals.extend(worker.memory.is_terminals)
+                
+                
                 if len(self.MEMORY.rewards) >= BATCH_SIZE:
+                    f = open('child_processes.txt', 'r')
+                    lines = f.readline()
+                    f.close()
+                    for line in lines:
+                        while True:
+                            s = open('./child_data/'+line+'.txt', 'r')                            
+                            a = int(s.read())
+                            s.close()
+                            if a == 1:
+                                child_name = './child_data/'+line
+                                self.MEMORY.actions.extend(torch.load(child_name+'actions.tch'))
+                                self.MEMORY.states.extend(torch.load(child_name+'states.tch'))
+                                self.MEMORY.logprobs.extend(torch.load(child_name+'logprobs.tch'))
+                                self.MEMORY.rewards.extend(torch.load(child_name+'rewards.tch'))
+                                self.MEMORY.is_terminals.extend(torch.load(child_name+'is_terminals.tch'))
+                                break
+                            else:                            
+                                time.sleep(3)
                     self.ldg_policy.update(self.MEMORY)
+                    s = open('./child_data/'+line+'.txt', 'w')    
+                    s.write(str(0))
+                    s.close()
                     self.MEMORY.clear_memory()
             self.reset_workers()
         return task.cont

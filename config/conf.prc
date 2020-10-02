@@ -9,3 +9,4 @@ undecorated False
 want-pstats 1
 task-timer-verbose 1
 pstats-tasks 1
+threading-model Cull/Draw
