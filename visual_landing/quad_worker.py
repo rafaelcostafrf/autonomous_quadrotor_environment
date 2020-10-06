@@ -9,6 +9,9 @@ from environment.quadrotor_env_opt import quad
 from environment.controller.model import ActorCritic
 from environment.controller.dl_auxiliary import dl_in_gen
 from panda3d.core import Thread
+
+from visual_landing.memory import Memory
+
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 T = 5
@@ -29,24 +32,7 @@ except:
     print('Could not load Control policy')
     sys.exit(1)  
   
-
-
-class Memory:
-    def __init__(self):
-        self.actions = []
-        self.states = []
-        self.logprobs = []
-        self.rewards = []
-        self.is_terminals = []
-    
-    def clear_memory(self):
-        del self.actions
-        del self.states
-        del self.logprobs
-        del self.rewards
-        del self.is_terminals
-
-            
+           
 class quad_worker():
     def __init__(self, render):
         self.update = [0, None]

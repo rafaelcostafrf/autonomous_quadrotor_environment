@@ -14,8 +14,8 @@ class cameras():
         for i, name in enumerate(cam_names):
             self.opencv_cameras.append( opencv_camera(self.render, name, frame_interval) )
             # CALIBRATION ALGORITHM
-            self.opencv_cam_cal.append( calibration(self.render, self.opencv_cameras[i]) )        
-        self.render.taskMgr.add(self.calibration_test)   
+            # self.opencv_cam_cal.append( calibration(self.render, self.opencv_cameras[i]) )        
+        # self.render.taskMgr.add(self.calibration_test)   
     
     def calibration_test(self, task):
             for i in self.opencv_cam_cal:
