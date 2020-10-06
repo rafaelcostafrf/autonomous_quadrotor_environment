@@ -7,7 +7,7 @@ from panda3d.core import loadPrcFile
 loadPrcFile('./config/conf.prc')
 
 #Custom Functions
-from visual_landing.workers_flow_child import work_flow
+from visual_landing.v2.quad_worker import quad_worker
 from visual_landing.ppo_world_setup import world_setup, quad_setup
 from models.camera_control import camera_control
 from computer_vision.cameras_setup import cameras
@@ -107,13 +107,13 @@ class MyApp(ShowBase):
         # OPENCV CAMERAS SETUP
         self.buffer_cameras = cameras(self, frame_interval, cam_names)  
         
-    def run_setup(self):
+        self.ldg_algorithm = quad_worker(self, self.buffer_cameras.opencv_cameras[0], CHILD_PROCESS, child=True)     
         
-        # COMPUTER VISION
-        self.ldg_algorithm = work_flow(self, self.buffer_cameras.opencv_cameras[0], CHILD_PROCESS)        
-        
-        # CAMERA CONTROL
         camera_control(self, self.render) 
+        
+    def run_setup(self):
+        a = 1
+
                 
 app = MyApp()
 

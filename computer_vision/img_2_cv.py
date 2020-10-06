@@ -5,8 +5,9 @@ class opencv_camera():
     def __init__(self, render, name, frame_interval):
         self.frame_int = frame_interval
         self.render = render   
-        window_size = (self.render.win.getXSize(), self.render.win.getYSize())     
+        
         self.buffer = self.render.win.makeTextureBuffer(name, 160, 160, None, True)
+        self.buffer.setSort(-100)
         self.cam = self.render.makeCamera(self.buffer)
         self.cam.setName(name)     
         self.cam.node().getLens().setFilmSize(36, 24)
