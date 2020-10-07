@@ -1,0 +1,472 @@
+[1mdiff --git a/PPO_landing.pth b/PPO_landing.pth[m
+[1mindex 5710a0e..376f5fd 100644[m
+Binary files a/PPO_landing.pth and b/PPO_landing.pth differ
+[1mdiff --git a/PPO_landing_old.pth b/PPO_landing_old.pth[m
+[1mindex 4431bb3..92d3585 100644[m
+Binary files a/PPO_landing_old.pth and b/PPO_landing_old.pth differ
+[1mdiff --git a/child_processes.txt b/child_processes.txt[m
+[1mindex 4539bbf..c227083 100644[m
+[1m--- a/child_processes.txt[m
+[1m+++ b/child_processes.txt[m
+[36m@@ -1,3 +1 @@[m
+[31m-0[m
+[31m-1[m
+[31m-2[m
+[32m+[m[32m0[m
+\ No newline at end of file[m
+[1mdiff --git a/computer_vision/__pycache__/camera_calibration.cpython-37.pyc b/computer_vision/__pycache__/camera_calibration.cpython-37.pyc[m
+[1mindex 30ffc7b..e4a9c7f 100644[m
+Binary files a/computer_vision/__pycache__/camera_calibration.cpython-37.pyc and b/computer_vision/__pycache__/camera_calibration.cpython-37.pyc differ
+[1mdiff --git a/computer_vision/__pycache__/camera_calibration.cpython-38.pyc b/computer_vision/__pycache__/camera_calibration.cpython-38.pyc[m
+[1mindex 1443a25..e8666e8 100644[m
+Binary files a/computer_vision/__pycache__/camera_calibration.cpython-38.pyc and b/computer_vision/__pycache__/camera_calibration.cpython-38.pyc differ
+[1mdiff --git a/computer_vision/__pycache__/cameras_setup.cpython-38.pyc b/computer_vision/__pycache__/cameras_setup.cpython-38.pyc[m
+[1mindex 90f13bd..b1033bf 100644[m
+Binary files a/computer_vision/__pycache__/cameras_setup.cpython-38.pyc and b/computer_vision/__pycache__/cameras_setup.cpython-38.pyc differ
+[1mdiff --git a/computer_vision/__pycache__/detector_setup.cpython-38.pyc b/computer_vision/__pycache__/detector_setup.cpython-38.pyc[m
+[1mindex dd3ef21..4c8f2fb 100644[m
+Binary files a/computer_vision/__pycache__/detector_setup.cpython-38.pyc and b/computer_vision/__pycache__/detector_setup.cpython-38.pyc differ
+[1mdiff --git a/computer_vision/__pycache__/img_2_cv.cpython-38.pyc b/computer_vision/__pycache__/img_2_cv.cpython-38.pyc[m
+[1mindex c2f1dc3..a1ce427 100644[m
+Binary files a/computer_vision/__pycache__/img_2_cv.cpython-38.pyc and b/computer_vision/__pycache__/img_2_cv.cpython-38.pyc differ
+[1mdiff --git a/computer_vision/camera_calibration.py b/computer_vision/camera_calibration.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/computer_vision/cameras_setup.py b/computer_vision/cameras_setup.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/computer_vision/detector_setup.py b/computer_vision/detector_setup.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/computer_vision/img_2_cv.py b/computer_vision/img_2_cv.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/config/conf.prc b/config/conf.prc[m
+[1mindex 6ba066a..6e36560 100644[m
+[1m--- a/config/conf.prc[m
+[1m+++ b/config/conf.prc[m
+[36m@@ -6,7 +6,5 @@[m [mdefault-far 1000[m
+ texture-anisotropic-degree 8[m
+ texture-quality-level fast[m
+ undecorated False[m
+[31m-want-pstats 1[m
+[31m-task-timer-verbose 1[m
+[31m-pstats-tasks 1[m
+[32m+[m
+ threading-model Cull/Draw[m
+[1mdiff --git a/environment/__pycache__/quadrotor_env_opt.cpython-38.pyc b/environment/__pycache__/quadrotor_env_opt.cpython-38.pyc[m
+[1mindex e869c07..e2379bc 100644[m
+Binary files a/environment/__pycache__/quadrotor_env_opt.cpython-38.pyc and b/environment/__pycache__/quadrotor_env_opt.cpython-38.pyc differ
+[1mdiff --git a/environment/__pycache__/quaternion_euler_utility.cpython-37.pyc b/environment/__pycache__/quaternion_euler_utility.cpython-37.pyc[m
+[1mindex b1f33e4..4702565 100644[m
+Binary files a/environment/__pycache__/quaternion_euler_utility.cpython-37.pyc and b/environment/__pycache__/quaternion_euler_utility.cpython-37.pyc differ
+[1mdiff --git a/environment/__pycache__/quaternion_euler_utility.cpython-38.pyc b/environment/__pycache__/quaternion_euler_utility.cpython-38.pyc[m
+[1mindex 55dfca6..868d2e1 100644[m
+Binary files a/environment/__pycache__/quaternion_euler_utility.cpython-38.pyc and b/environment/__pycache__/quaternion_euler_utility.cpython-38.pyc differ
+[1mdiff --git a/environment/controller/PID_control.py b/environment/controller/PID_control.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/environment/controller/__pycache__/dl_auxiliary.cpython-37.pyc b/environment/controller/__pycache__/dl_auxiliary.cpython-37.pyc[m
+[1mindex ee2764a..0b1c017 100644[m
+Binary files a/environment/controller/__pycache__/dl_auxiliary.cpython-37.pyc and b/environment/controller/__pycache__/dl_auxiliary.cpython-37.pyc differ
+[1mdiff --git a/environment/controller/__pycache__/dl_auxiliary.cpython-38.pyc b/environment/controller/__pycache__/dl_auxiliary.cpython-38.pyc[m
+[1mindex 9ca66e8..63f38b2 100644[m
+Binary files a/environment/controller/__pycache__/dl_auxiliary.cpython-38.pyc and b/environment/controller/__pycache__/dl_auxiliary.cpython-38.pyc differ
+[1mdiff --git a/environment/controller/__pycache__/model.cpython-37.pyc b/environment/controller/__pycache__/model.cpython-37.pyc[m
+[1mindex 68cc32c..81faef8 100644[m
+Binary files a/environment/controller/__pycache__/model.cpython-37.pyc and b/environment/controller/__pycache__/model.cpython-37.pyc differ
+[1mdiff --git a/environment/controller/__pycache__/model.cpython-38.pyc b/environment/controller/__pycache__/model.cpython-38.pyc[m
+[1mindex 1a83af7..26c5621 100644[m
+Binary files a/environment/controller/__pycache__/model.cpython-38.pyc and b/environment/controller/__pycache__/model.cpython-38.pyc differ
+[1mdiff --git a/environment/controller/__pycache__/target_parser.cpython-38.pyc b/environment/controller/__pycache__/target_parser.cpython-38.pyc[m
+[1mindex 39892c9..2bdd2c0 100644[m
+Binary files a/environment/controller/__pycache__/target_parser.cpython-38.pyc and b/environment/controller/__pycache__/target_parser.cpython-38.pyc differ
+[1mdiff --git a/environment/controller/logger_analyzer.py b/environment/controller/logger_analyzer.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/environment/controller/response_analyzer.py b/environment/controller/response_analyzer.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/environment/controller/target_parser.py b/environment/controller/target_parser.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/environment/controller/velocity_pid.py b/environment/controller/velocity_pid.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/environment/controller/visual_model.py b/environment/controller/visual_model.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/environment/quadrotor_env_opt.py b/environment/quadrotor_env_opt.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/mission_control/mission_control.py b/mission_control/mission_control.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/models/__pycache__/camera_control.cpython-37.pyc b/models/__pycache__/camera_control.cpython-37.pyc[m
+[1mindex b0912fa..924904a 100644[m
+Binary files a/models/__pycache__/camera_control.cpython-37.pyc and b/models/__pycache__/camera_control.cpython-37.pyc differ
+[1mdiff --git a/models/__pycache__/camera_control.cpython-38.pyc b/models/__pycache__/camera_control.cpython-38.pyc[m
+[1mindex bc3dfb9..cf7471e 100644[m
+Binary files a/models/__pycache__/camera_control.cpython-38.pyc and b/models/__pycache__/camera_control.cpython-38.pyc differ
+[1mdiff --git a/ppo_visual_landing.py b/ppo_visual_landing.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/teste.py b/teste.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/visual_landing/__pycache__/landing_reward_fuction.cpython-38.pyc b/visual_landing/__pycache__/landing_reward_fuction.cpython-38.pyc[m
+[1mindex f3bb010..fc49449 100644[m
+Binary files a/visual_landing/__pycache__/landing_reward_fuction.cpython-38.pyc and b/visual_landing/__pycache__/landing_reward_fuction.cpython-38.pyc differ
+[1mdiff --git a/visual_landing/__pycache__/nn_model.cpython-38.pyc b/visual_landing/__pycache__/nn_model.cpython-38.pyc[m
+[1mindex 6d969e0..7fdc32e 100644[m
+Binary files a/visual_landing/__pycache__/nn_model.cpython-38.pyc and b/visual_landing/__pycache__/nn_model.cpython-38.pyc differ
+[1mdiff --git a/visual_landing/__pycache__/ppo_aux.cpython-38.pyc b/visual_landing/__pycache__/ppo_aux.cpython-38.pyc[m
+[1mindex a60fc19..a148b72 100644[m
+Binary files a/visual_landing/__pycache__/ppo_aux.cpython-38.pyc and b/visual_landing/__pycache__/ppo_aux.cpython-38.pyc differ
+[1mdiff --git a/visual_landing/__pycache__/ppo_worker.cpython-38.pyc b/visual_landing/__pycache__/ppo_worker.cpython-38.pyc[m
+[1mindex caa4e03..0eb4624 100644[m
+Binary files a/visual_landing/__pycache__/ppo_worker.cpython-38.pyc and b/visual_landing/__pycache__/ppo_worker.cpython-38.pyc differ
+[1mdiff --git a/visual_landing/__pycache__/ppo_world_setup.cpython-38.pyc b/visual_landing/__pycache__/ppo_world_setup.cpython-38.pyc[m
+[1mindex 8a32c25..1453541 100644[m
+Binary files a/visual_landing/__pycache__/ppo_world_setup.cpython-38.pyc and b/visual_landing/__pycache__/ppo_world_setup.cpython-38.pyc differ
+[1mdiff --git a/visual_landing/__pycache__/quad_worker.cpython-38.pyc b/visual_landing/__pycache__/quad_worker.cpython-38.pyc[m
+[1mindex db9b793..a7b4b7d 100644[m
+Binary files a/visual_landing/__pycache__/quad_worker.cpython-38.pyc and b/visual_landing/__pycache__/quad_worker.cpython-38.pyc differ
+[1mdiff --git a/visual_landing/__pycache__/workers_flow.cpython-38.pyc b/visual_landing/__pycache__/workers_flow.cpython-38.pyc[m
+[1mindex 1cd29cc..cf96010 100644[m
+Binary files a/visual_landing/__pycache__/workers_flow.cpython-38.pyc and b/visual_landing/__pycache__/workers_flow.cpython-38.pyc differ
+[1mdiff --git a/visual_landing/__pycache__/workers_flow_child.cpython-38.pyc b/visual_landing/__pycache__/workers_flow_child.cpython-38.pyc[m
+[1mindex 66d0666..67ed0cf 100644[m
+Binary files a/visual_landing/__pycache__/workers_flow_child.cpython-38.pyc and b/visual_landing/__pycache__/workers_flow_child.cpython-38.pyc differ
+[1mdiff --git a/visual_landing/landing_reward_fuction.py b/visual_landing/landing_reward_fuction.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/visual_landing/nn_model.py b/visual_landing/nn_model.py[m
+[1mindex 478cf56..aaf03d1 100644[m
+[1m--- a/visual_landing/nn_model.py[m
+[1m+++ b/visual_landing/nn_model.py[m
+[36m@@ -83,9 +83,9 @@[m [mclass ActorCritic(nn.Module):[m
+         action = dist.sample()[m
+         action_logprob = dist.log_prob(action)[m
+         [m
+[31m-        memory.states.append(state)[m
+[31m-        memory.actions.append(action)[m
+[31m-        memory.logprobs.append(action_logprob)[m
+[32m+[m[32m        memory.states.append(state.detach())[m
+[32m+[m[32m        memory.actions.append(action.detach())[m
+[32m+[m[32m        memory.logprobs.append(action_logprob.detach())[m
+         [m
+         return action.detach()[m
+     [m
+[1mdiff --git a/visual_landing/ppo_aux.py b/visual_landing/ppo_aux.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mindex 6e4ede7..61d91e0[m
+[1m--- a/visual_landing/ppo_aux.py[m
+[1m+++ b/visual_landing/ppo_aux.py[m
+[36m@@ -62,11 +62,11 @@[m [mclass Memory:[m
+         self.is_terminals = [][m
+     [m
+     def clear_memory(self):[m
+[31m-        del self.actions[:][m
+[31m-        del self.states[:][m
+[31m-        del self.logprobs[:][m
+[31m-        del self.rewards[:][m
+[31m-        del self.is_terminals[:][m
+[32m+[m[32m        del self.actions[m
+[32m+[m[32m        del self.states[m
+[32m+[m[32m        del self.logprobs[m
+[32m+[m[32m        del self.rewards[m
+[32m+[m[32m        del self.is_terminals[m
+ [m
+ class PPO:[m
+     def __init__(self, state_dim, action_dim):[m
+[36m@@ -87,13 +87,15 @@[m [mclass PPO:[m
+             self.policy_old.load_state_dict(torch.load('./PPO_landing_old.pth',map_location=device))[m
+             print('Saved Landing Policy loaded')[m
+         except:[m
+[32m+[m[32m            torch.save(self.policy.state_dict(), './PPO_landing.pth')[m
+[32m+[m[32m            torch.save(self.policy_old.state_dict(), './PPO_landing_old.pth')[m
+             print('New Landing Policy generated')[m
+             pass[m
+         [m
+         self.MseLoss = nn.MSELoss()[m
+     [m
+     def select_action(self, state, memory):[m
+[31m-        state = torch.FloatTensor([state]).to(device)[m
+[32m+[m[32m        state = torch.FloatTensor([state]).to(device).detach()[m
+         return self.policy_old.act(state, memory).cpu().data.numpy().flatten()[m
+     [m
+     def update(self, memory):[m
+[36m@@ -111,6 +113,7 @@[m [mclass PPO:[m
+         rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)[m
+         [m
+         # convert list to tensor[m
+[32m+[m
+         old_states = torch.squeeze(torch.stack(memory.states).to(device), 1).detach()[m
+         old_actions = torch.squeeze(torch.stack(memory.actions).to(device), 1).detach()[m
+         old_logprobs = torch.squeeze(torch.stack(memory.logprobs), 1).to(device).detach()[m
+[36m@@ -135,8 +138,9 @@[m [mclass PPO:[m
+             self.optimizer.step()[m
+             print('\rTraining progress: {:.2%}          '.format(epoch/self.K_epochs),end='')[m
+         torch.save(self.policy.state_dict(), './PPO_landing.pth')[m
+[31m-        torch.save(self.policy_old.state_dict(), './PPO_landing.pth')[m
+[32m+[m[32m        torch.save(self.policy_old.state_dict(), './PPO_landing_old.pth')[m
+         print('Policy Saved')[m
+[32m+[m[32m        torch.cuda.empty_cache()[m
+         # Copy new weights into old policy:[m
+         self.policy_old.load_state_dict(self.policy.state_dict())[m
+ [m
+[1mdiff --git a/visual_landing/ppo_training.py b/visual_landing/ppo_training.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/visual_landing/ppo_worker.py b/visual_landing/ppo_worker.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mindex 2eb92ea..8f058d2[m
+[1m--- a/visual_landing/ppo_worker.py[m
+[1m+++ b/visual_landing/ppo_worker.py[m
+[36m@@ -12,6 +12,7 @@[m [mdevice = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")[m
+ [m
+ TIME_STEP = 0.01[m
+ IMAGE_LEN = np.array([160, 160])[m
+[32m+[m[32mMAX_PPO_CALLS = 150[m
+             [m
+ # LANDING POLICY[m
+ [m
+[36m@@ -75,7 +76,10 @@[m [mclass ppo_worker():[m
+         [m
+         self.render_position(coordinates, quad_worker.marker_position)[m
+         [m
+[31m-        image = self.take_picture()[m
+[32m+[m[32m        if quad_worker.ppo_calls >= MAX_PPO_CALLS:[m
+[32m+[m[32m            quad_worker.visual_done = True[m[41m [m
+[32m+[m
+[32m+[m[32m        image = self.take_picture()/255.0[m
+ [m
+         quad_worker.image_roll(image)  [m
+ [m
+[1mdiff --git a/visual_landing/quad_worker.py b/visual_landing/quad_worker.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mindex 459fe41..dd91e57[m
+[1m--- a/visual_landing/quad_worker.py[m
+[1m+++ b/visual_landing/quad_worker.py[m
+[36m@@ -15,7 +15,7 @@[m [mT = 5[m
+ TIME_STEP = 0.01[m
+ TOTAL_STEPS = 1500[m
+ IMAGE_LEN = np.array([160, 160])[m
+[31m-TASK_INTERVAL_STEPS = 30[m
+[32m+[m[32mTASK_INTERVAL_STEPS = 10[m
+ [m
+ [m
+ #CONTROL POLICY[m
+[36m@@ -40,11 +40,11 @@[m [mclass Memory:[m
+         self.is_terminals = [][m
+     [m
+     def clear_memory(self):[m
+[31m-        del self.actions[:][m
+[31m-        del self.states[:][m
+[31m-        del self.logprobs[:][m
+[31m-        del self.rewards[:][m
+[31m-        del self.is_terminals[:][m
+[32m+[m[32m        del self.actions[m
+[32m+[m[32m        del self.states[m
+[32m+[m[32m        del self.logprobs[m
+[32m+[m[32m        del self.rewards[m
+[32m+[m[32m        del self.is_terminals[m
+ [m
+             [m
+ class quad_worker():[m
+[1mdiff --git a/visual_landing/workers_flow.py b/visual_landing/workers_flow.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mindex 25210af..d483c6c[m
+[1m--- a/visual_landing/workers_flow.py[m
+[1m+++ b/visual_landing/workers_flow.py[m
+[36m@@ -1,4 +1,3 @@[m
+[31m-import numpy as np[m
+ import torch[m
+ import time[m
+ [m
+[36m@@ -9,10 +8,8 @@[m [mfrom visual_landing.ppo_worker import ppo_worker[m
+ from visual_landing.ppo_aux import PPO[m
+ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")[m
+ [m
+[31m-N_WORKERS = 2[m
+[31m-BATCH_SIZE = 600[m
+[31m-[m
+[31m-from panda3d.core import Thread[m
+[32m+[m[32mN_WORKERS = 1[m
+[32m+[m[32mBATCH_SIZE = 300[m
+ [m
+ class Memory:[m
+     def __init__(self):[m
+[36m@@ -23,12 +20,12 @@[m [mclass Memory:[m
+         self.is_terminals = [][m
+     [m
+     def clear_memory(self):[m
+[31m-        del self.actions[:][m
+[31m-        del self.states[:][m
+[31m-        del self.logprobs[:][m
+[31m-        del self.rewards[:][m
+[31m-        del self.is_terminals[:][m
+[31m-[m
+[32m+[m[32m        del self.actions[m
+[32m+[m[32m        del self.states[m
+[32m+[m[32m        del self.logprobs[m
+[32m+[m[32m        del self.rewards[m
+[32m+[m[32m        del self.is_terminals[m
+[32m+[m[41m        [m
+ class work_flow():[m
+     [m
+     def __init__(self, render, cv_cam):[m
+[36m@@ -100,22 +97,49 @@[m [mclass work_flow():[m
+                             s.close()[m
+                             if a == 1:[m
+                                 child_name = './child_data/'+line.splitlines()[0][m
+[31m-                                self.MEMORY.actions.extend(torch.load(child_name+'actions.tch'))[m
+[31m-                                self.MEMORY.states.extend(torch.load(child_name+'states.tch'))[m
+[31m-                                self.MEMORY.logprobs.extend(torch.load(child_name+'logprobs.tch'))[m
+[31m-                                self.MEMORY.rewards.extend(torch.load(child_name+'rewards.tch'))[m
+[31m-                                self.MEMORY.is_terminals.extend(torch.load(child_name+'is_terminals.tch'))[m
+[32m+[m[41m                               [m
+[32m+[m[32m                                actions_temp = torch.load(child_name+'actions.tch')[m
+[32m+[m[32m                                for i, action in enumerate(actions_temp):[m
+[32m+[m[32m                                    actions_temp[i] = action.to(device).detach()[m
+[32m+[m[41m                                    [m
+[32m+[m[32m                                states_temp = torch.load(child_name+'states.tch')[m
+[32m+[m[32m                                for i, state in enumerate(states_temp):[m
+[32m+[m[32m                                    states_temp[i] = state.to(device).detach()[m
+[32m+[m[41m                                    [m
+[32m+[m[32m                                logprobs_temp = torch.load(child_name+'logprobs.tch')[m
+[32m+[m[32m                                for i, logprob in enumerate(logprobs_temp):[m
+[32m+[m[32m                                    logprobs_temp[i] = logprob.to(device).detach()[m
+[32m+[m[41m                                    [m
+[32m+[m[32m                                rewards_temp = torch.load(child_name+'rewards.tch')[m
+[32m+[m
+[32m+[m[41m                               [m	[32mis_terminals_temp = torch.load(child_name+'is_terminals.tch')[m
+[32m+[m
+[32m+[m
+[32m+[m[41m                                [m
+[32m+[m[32m                                self.MEMORY.actions.extend(actions_temp)[m
+[32m+[m[32m                                self.MEMORY.states.extend(states_temp)[m
+[32m+[m[32m                                self.MEMORY.logprobs.extend(logprobs_temp)[m
+[32m+[m[32m                                self.MEMORY.rewards.extend(rewards_temp)[m
+[32m+[m[32m                                self.MEMORY.is_terminals.extend(is_terminals_temp)[m
+[32m+[m[41m                                [m
+[32m+[m[32m                                del actions_temp[m
+[32m+[m[32m                                del states_temp[m
+[32m+[m[32m                                del logprobs_temp[m
+[32m+[m[32m                                del rewards_temp[m
+[32m+[m[32m                                del is_terminals_temp[m
+                                 break[m
+                             else:                            [m
+                                 time.sleep(3)[m
+[31m-                    print(self.MEMORY.actions)[m
+[31m-                    self.ldg_policy.update(self.MEMORY)[m
+[31m-                    [m
+[32m+[m[32m                    print(len(self.MEMORY.actions))[m
+[32m+[m[32m                    self.ldg_policy.update(self.MEMORY)[m[41m                    [m
+                     for line in lines:[m
+                         s = open('./child_data/'+line.splitlines()[0]+'.txt', 'w')    [m
+                         s.write(str(0))[m
+                         s.close()[m
+                     self.MEMORY.clear_memory()[m
+[32m+[m[32m                    torch.cuda.empty_cache()[m
+[32m+[m[32m            for worker in self.workers:[m
+[32m+[m[32m                worker.memory.clear_memory()[m
+             self.reset_workers()[m
+         return task.cont[m
+         [m
+\ No newline at end of file[m
+[1mdiff --git a/visual_landing/workers_flow_child.py b/visual_landing/workers_flow_child.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mindex 34c51bd..1c18ece[m
+[1m--- a/visual_landing/workers_flow_child.py[m
+[1m+++ b/visual_landing/workers_flow_child.py[m
+[36m@@ -1,18 +1,16 @@[m
+ import torch[m
+[31m-import numpy as np[m
+ import time[m
+[32m+[m[32mimport sys[m
+ [m
+ from visual_landing.quad_worker import quad_worker[m
+[31m-from visual_landing.ppo_worker import ppo_worker[m
+[32m+[m[32mfrom visual_landing.ppo_worker_child import ppo_worker[m
+ [m
+ # LANDING SETUP[m
+[31m-from visual_landing.ppo_aux import PPO[m
+[32m+[m[32mfrom visual_landing.ppo_aux_child import PPO[m
+ device = torch.device("cpu")[m
+ [m
+[31m-N_WORKERS = 2[m
+[31m-BATCH_SIZE = 500[m
+[31m-[m
+[31m-from panda3d.core import Thread[m
+[32m+[m[32mN_WORKERS = 1[m
+[32m+[m[32mBATCH_SIZE = 270[m
+ [m
+ class Memory:[m
+     def __init__(self):[m
+[36m@@ -23,11 +21,11 @@[m [mclass Memory:[m
+         self.is_terminals = [][m
+     [m
+     def clear_memory(self):[m
+[31m-        del self.actions[:][m
+[31m-        del self.states[:][m
+[31m-        del self.logprobs[:][m
+[31m-        del self.rewards[:][m
+[31m-        del self.is_terminals[:][m
+[32m+[m[32m        del self.actions[m
+[32m+[m[32m        del self.states[m
+[32m+[m[32m        del self.logprobs[m
+[32m+[m[32m        del self.rewards[m
+[32m+[m[32m        del self.is_terminals[m
+ [m
+ class work_flow():[m
+     [m
+[36m@@ -37,7 +35,7 @@[m [mclass work_flow():[m
+         self.MEMORY = Memory()[m
+         self.render = render[m
+         self.cv_cam = cv_cam[m
+[31m-[m
+[32m+[m[32m        self.ldg_policy = PPO(3, 3)[m
+         [m
+         for i in range(N_WORKERS):[m
+             self.render.taskMgr.setupTaskChain(str(i), numThreads = 1, tickClock = None,[m
+[36m@@ -73,9 +71,13 @@[m [mclass work_flow():[m
+         self.workers = [][m
+         for i in range(N_WORKERS):[m
+             self.workers.append(quad_worker(self.render))[m
+[31m-            self.render.taskMgr.add(self.workers[i].step, 'quad_worker'+str(i), taskChain = str(i))            [m
+[31m-        [m
+[31m-        self.ldg_policy = PPO(0, 3)[m
+[32m+[m[32m            self.render.taskMgr.add(self.workers[i].step, 'quad_worker'+str(i), taskChain = str(i))[m[41m  [m
+[32m+[m[32m        try:[m
+[32m+[m[32m            self.ldg_policy.policy.load_state_dict(torch.load('./PPO_landing.pth', map_location=device))[m
+[32m+[m[32m            self.ldg_policy.policy_old.load_state_dict(torch.load('./PPO_landing_old.pth', map_location=device))[m
+[32m+[m[32m        except:[m
+[32m+[m[32m            print("Could Not Load Father Landing Policy")[m
+[32m+[m[32m            sys.exit()[m
+         self.ppo_worker = ppo_worker(self.render, self.workers, self.cv_cam, self.ldg_policy)     [m
+         self.render.taskMgr.add(self.ppo_worker.wait_until_ready, 'ppo_worker'+str(i) , taskChain = 'ppo')[m
+     [m
+[36m@@ -112,7 +114,8 @@[m [mclass work_flow():[m
+                 f = open(child_name+'.txt','w')[m
+                 f.write(str(1))[m
+                 f.close()[m
+[31m-                [m
+[32m+[m[32m            for worker in self.workers:[m
+[32m+[m[32m                worker.memory.clear_memory()[m[41m    [m
+             self.reset_workers()[m
+         return task.cont[m
+         [m
+\ No newline at end of file[m
+[1mdiff --git a/vldg_training.py b/vldg_training.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
+[1mdiff --git a/vldg_training_child.py b/vldg_training_child.py[m
+[1mold mode 100755[m
+[1mnew mode 100644[m
