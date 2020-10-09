@@ -1,5 +1,5 @@
 import numpy as np
-MAX_STEPS = 2000
+MAX_STEPS = 4000
 
 def visual_reward(marker_position, quad_position, quad_vel, control, last_shaping, step):
 
@@ -55,5 +55,5 @@ def visual_reward(marker_position, quad_position, quad_vel, control, last_shapin
     else:
         reward = - control_p*control_effort 
 
-        
+    # print(reward)  
     return reward, current_shaping, done

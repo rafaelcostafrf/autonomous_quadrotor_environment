@@ -28,6 +28,7 @@ class ActorCritic(nn.Module):
             self.device = torch.device("cpu")
         else:
             self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        print(self.device)
         h1=64
         h2=64
         super(ActorCritic, self).__init__()

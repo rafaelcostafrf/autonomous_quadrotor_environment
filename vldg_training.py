@@ -7,11 +7,19 @@ from panda3d.core import loadPrcFile
 loadPrcFile('./config/conf.prc')
 
 #Custom Functions
-from visual_landing.v2.quad_worker import quad_worker
+from visual_landing.rl_worker import quad_worker
 from visual_landing.ppo_world_setup import world_setup, quad_setup
 from models.camera_control import camera_control
 from computer_vision.cameras_setup import cameras
 from environment.controller.target_parser import episode_n
+from panda3d.core import WindowProperties 
+
+import argparse
+
+parser = argparse.ArgumentParser(description='Child or Mother Process')
+parser.add_argument('-c', '--child', action='store_true',
+                    help='an integer for the accumulator')
+child = parser.parse_args().child
 
 
 """
@@ -48,24 +56,6 @@ DESCRIÇÃO:
     
 """
 
-# REAL STATE CONTROL ELSE BY ESTIMATION METHODS
-REAL_CTRL = True
-
-# HOVER FLIGHT ELSE RANDOM INITIAL STATE
-HOVER = True
-
-#IMAGE POSITION ESTIMATION
-IMG_POS_DETER = True
-
-# NUMBER OF EPISODE TIMESTEPS 
-EPISODE_STEPS = 5000
-
-# TOTAL NUMBER OF EPISODES
-ERROR_AQS_EPISODES = episode_n()
-
-# PATH TO ERROR DATALOG
-ERROR_PATH = './data/hover/' if HOVER else './data/random_initial_state/'
-
 mydir = os.path.abspath(sys.path[0])
 
 mydir = Filename.fromOsSpecific(mydir).getFullpath()
@@ -73,12 +63,41 @@ mydir = Filename.fromOsSpecific(mydir).getFullpath()
 frame_interval = 10
 cam_names = ('cam_1', )
 
-f = open('./child_processes.txt', 'w')
-f.close()
-       
+
+
+if child:
+    print('--------------------')
+    print('--------------------')
+    print('---CHILD PROCESS----')
+    print('--------------------')
+    print('--------------------')
+    f = open('./child_data/child_processes.txt', 'r+')
+    try:
+        lines = f.readlines()
+        last_line = lines[-1]
+        CHILD_PROCESS = int(last_line)+1
+        if len(lines) == 1:
+            f.write(f.read()+'\n'+str(CHILD_PROCESS)+'\n')   
+        else:
+            f.write(f.read()+str(CHILD_PROCESS)+'\n')   
+    except:
+        CHILD_PROCESS = 0
+        f.write(str(CHILD_PROCESS))
+    f.close()
+    data = open('./child_data/'+str(CHILD_PROCESS)+'.txt', 'w')
+    data.write(str(0))
+    data.close()
+else:
+    print('--------------------')
+    print('--------------------')
+    print('---MOTHER PROCESS---')
+    print('--------------------')
+    print('--------------------')
+    f = open('./child_data/child_processes.txt', 'w')
+    f.close()
+    CHILD_PROCESS = 0
 
     
-
 class MyApp(ShowBase):
     def __init__(self):
         
@@ -94,11 +113,16 @@ class MyApp(ShowBase):
         
         # self.taskMgr.doMethodLater(60, trace_memory, 'memory check')
         # COMPUTER VISION
-        self.ldg_algorithm = quad_worker(self, self.buffer_cameras.opencv_cameras[0])        
+        self.ldg_algorithm = quad_worker(self, self.buffer_cameras.opencv_cameras[0], CHILD_PROCESS, child=child)        
 
         # CAMERA CONTROL
         camera_control(self, self.render) 
         
+        #WINDOW NAME
+        wn= 'Child process n.'+str(CHILD_PROCESS) if child else 'Mother Process'
+        props = WindowProperties( )
+        props.setTitle( wn )
+        self.win.requestProperties( props )
     def run_setup(self):        
         a = 1        
                 
