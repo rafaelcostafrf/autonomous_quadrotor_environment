@@ -18,9 +18,9 @@ from environment.controller.model import ActorCritic
 from environment.controller.dl_auxiliary import dl_in_gen
 
 
-from visual_landing.ppo_aux_v2 import PPO
-from visual_landing.v2.memory import Memory
-from visual_landing.v2.landing_reward_fuction import visual_reward
+from visual_landing.ppo_trainer import PPO
+from visual_landing.rl_memory import Memory
+from visual_landing.rl_reward_fuction import visual_reward
 from visual_landing.memory_leak import debug_gpu
 
 
@@ -35,9 +35,9 @@ VELOCITY_SCALE = [1, 1, 4]
 #CONTROL POLICY
 AUX_DL = dl_in_gen(T, 13, 4)
 state_dim = AUX_DL.deep_learning_in_size
-CRTL_POLICY = ActorCritic(state_dim, action_dim=4, action_std=0).to(torch.device('cpu'))
+CRTL_POLICY = ActorCritic(state_dim, action_dim=4, action_std=0)
 try:
-    CRTL_POLICY.load_state_dict(torch.load('./environment/controller/PPO_continuous_solved_drone.pth',map_location=torch.device('cpu')))
+    CRTL_POLICY.load_state_dict(torch.load('./environment/controller/PPO_continuous_solved_drone.pth'))
     print('Saved Control policy loaded')
 except:
     print('Could not load Control policy')
@@ -50,16 +50,16 @@ class quad_worker():
         self.done = False
         self.render = render
         self.cv_cam = cv_cam
-        self.ldg_policy = PPO(3, 3)
+        self.ldg_policy = PPO(3, 3, child)
         self.train_time = False
 
         self.child = child
         if child:
             self.child_number = child_number
-            self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")    
-        else:
-            self.device = torch.device('cpu')
-                  
+            self.device = torch.device('cpu')  
+        else:            
+            self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  
+        print(self.device)
         
         self.quad_model = render.quad_model
         self.prop_models = render.prop_models
@@ -139,10 +139,14 @@ class quad_worker():
     def reset_policy(self):
         while True:
             f = open('./child_data/'+str(self.child_number)+'.txt', 'r')
-            if int(f.read()) == 0:
+            try:
+                a = int(f.read())
+            except:
+                a = None
+            if a == 2:
                 break
             else:
-                time.sleep(3)            
+                time.sleep(0.1)            
         self.ldg_policy.policy.load_state_dict(torch.load('./PPO_landing.pth', map_location=self.device))
         self.ldg_policy.policy_old.load_state_dict(torch.load('./PPO_landing_old.pth', map_location=self.device))
                 
@@ -161,7 +165,7 @@ class quad_worker():
         f.close()    
 
     def mother_train(self):
-        f = open('child_processes.txt', 'r')
+        f = open('./child_data/child_processes.txt', 'r')
         lines = f.readlines()
         f.close()
         for line in lines:
@@ -197,7 +201,7 @@ class quad_worker():
                     del is_terminals_temp
                     break
                 else:                            
-                    time.sleep(3)
+                    time.sleep(0.1)
                     
         self.ldg_policy.update(self.memory)   
         self.memory.clear_memory()
@@ -207,7 +211,7 @@ class quad_worker():
         
         for line in lines:
             s = open('./child_data/'+line.splitlines()[0]+'.txt', 'w')    
-            s.write(str(0))
+            s.write(str(2))
             s.close()
 
 
@@ -228,7 +232,7 @@ class quad_worker():
         
         self.quad_model.setPos(*pos)
         self.quad_model.setHpr(*ang_deg)
-
+        self.render.dlightNP.setPos(*pos)
         for prop, a in zip(self.prop_models, self.a):
             prop.setHpr(a, 0, 0)
          
@@ -242,7 +246,7 @@ class quad_worker():
         
                     self.internal_frame += 1
                     # LOWER CONTROL STEP  
-                    crtl_network_in = torch.Tensor(self.network_in).to(self.device)
+                    crtl_network_in = torch.Tensor(self.network_in).to('cpu')
         
                     crtl_action = CRTL_POLICY.actor(crtl_network_in).cpu().detach().numpy()
         
@@ -264,7 +268,7 @@ class quad_worker():
                     coordinates = np.concatenate((states[0, 0:5:2], self.quad_env.ang, np.zeros(4))) 
         
         
-                instant_reward, _, done = visual_reward(self.marker_position, self.quad_env.state[0:5:2], self.quad_env.state[1:6:2], self.vel_error, self.last_shaping, self.internal_frame)
+                instant_reward, self.last_shaping, done = visual_reward(self.marker_position, self.quad_env.state[0:5:2], self.quad_env.state[1:6:2], self.vel_error, self.last_shaping, self.internal_frame)
                 reward += instant_reward
                 
                 self.render_position(coordinates, self.marker_position)
@@ -298,7 +302,7 @@ class quad_worker():
     
                 self.internal_frame += 1
                 # LOWER CONTROL STEP  
-                crtl_network_in = torch.FloatTensor(self.network_in).to(self.device)
+                crtl_network_in = torch.FloatTensor(self.network_in).to('cpu')
     
                 crtl_action = CRTL_POLICY.actor(crtl_network_in).cpu().detach().numpy()
     
@@ -325,9 +329,9 @@ class quad_worker():
             self.render_position(coordinates, self.marker_position)
             self.render.graphicsEngine.renderFrame()
             image = self.take_picture()
-            image_concat = np.hstack((self.image_1, self.image_2, self.image_3))
-            cv.imshow('teste', image_concat)
-            cv.waitKey(1)
+            # image_concat = np.hstack((self.image_1, self.image_2, self.image_3))
+            # cv.imshow('teste', image_concat)
+            # cv.waitKey(1)
             self.image_roll(image)
         
             
@@ -369,5 +373,5 @@ class quad_worker():
             self.reset()
 
         print('\rBatch Progress: {:.2%}'.format(len(self.memory.states)/BATCH_SIZE), end='          ')
-
+        # print(torch.cuda.memory_summary(torch.device('cuda:0')))
         return task.cont

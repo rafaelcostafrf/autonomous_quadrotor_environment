@@ -6,7 +6,7 @@ import torch.nn as nn
 import time
 import gc
 
-from visual_landing.nn_model_v2 import ActorCritic
+from visual_landing.rl_nn_model import ActorCritic
 from visual_landing.memory_leak import debug_gpu
 import os
 import psutil
@@ -58,7 +58,7 @@ class PPO:
             self.device = torch.device("cpu")
         else:
             self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-            
+        print(self.device)
         self.lr = lr
         self.betas = betas
         self.gamma = gamma
@@ -110,7 +110,8 @@ class PPO:
         memory.clear_memory()
         # print('Out 2 Step Training Memory: {:.2f}Mb'.format(process.memory_info().rss/1000000)) 
                # Optimize policy for K epochs:
-        for _ in range(self.K_epochs):
+        for step in range(self.K_epochs):
+            print('\rTraining Progress: {:.2%}'.format(step/self.K_epochs), end='          ')
             # print('----------')
             # Evaluating old actions and values :
             # print('Before Log Step Training Memory: {:.2f}Mb'.format(process.memory_info().rss/1000000))     
@@ -144,8 +145,10 @@ class PPO:
             # print('After Gradient Step Training Memory: {:.2f}Mb'.format(process.memory_info().rss/1000000)) 
             # print('----------')
         # Copy new weights into old policy:
+
         self.policy_old.load_state_dict(self.policy.state_dict())        
 
         torch.save(self.policy.state_dict(), './PPO_landing.pth')
         torch.save(self.policy_old.state_dict(), './PPO_landing_old.pth')
+
         print('Policy Saved      ', end='')
