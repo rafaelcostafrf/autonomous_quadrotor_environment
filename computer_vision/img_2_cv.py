@@ -2,16 +2,16 @@ import numpy as np
 import cv2 as cv
 
 class opencv_camera():
-    def __init__(self, render, name, frame_interval):
+    def __init__(self, render, size, name, frame_interval):
         self.frame_int = frame_interval
         self.render = render   
         
-        self.buffer = self.render.win.makeTextureBuffer(name, 160, 160, None, True)
-        self.buffer.setSort(-100)
+        self.buffer = self.render.win.makeTextureBuffer(name, size, size, None, True)
+        # self.buffer.setSort(-100)
         self.cam = self.render.makeCamera(self.buffer)
         self.cam.setName(name)     
         self.cam.node().getLens().setFilmSize(36, 24)
-        self.cam.node().getLens().setFocalLength(28)
+        self.cam.node().getLens().setFocalLength(22)
         self.name = name
         # self.render.taskMgr.add(self.set_active, name) 
         # self.render.taskMgr.add(self.set_inactive, name)

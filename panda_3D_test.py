@@ -55,7 +55,7 @@ DESCRIÇÃO:
     
     
 """
-camera_size = 128
+
 mydir = os.path.abspath(sys.path[0])
 
 mydir = Filename.fromOsSpecific(mydir).getFullpath()
@@ -105,18 +105,8 @@ class MyApp(ShowBase):
         render = self.render
         
         # MODELS SETUP
-        world_setup(self, render, mydir)
-        quad_setup(self, render, mydir)
-        
-        # OPENCV CAMERAS SETUP
-        self.buffer_cameras = cameras(self, camera_size, frame_interval, cam_names)  
-        
-        # self.taskMgr.doMethodLater(60, trace_memory, 'memory check')
-        # COMPUTER VISION
-        self.ldg_algorithm = quad_worker(self, self.buffer_cameras.opencv_cameras[0], CHILD_PROCESS, child=child)        
-
-        # CAMERA CONTROL
-        camera_control(self, self.render) 
+        # world_setup(self, render, mydir)
+        # quad_setup(self, render, mydir)
         
         #WINDOW NAME
         wn= 'Child process n.'+str(CHILD_PROCESS) if child else 'Mother Process'

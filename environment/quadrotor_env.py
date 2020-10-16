@@ -134,6 +134,10 @@ class quad():
         #Absolute sum of control efforts over the episode
         self.abs_sum = 0
         
+        self.d_xx = np.linspace(0,D,10)
+        self.d_yy = np.linspace(0,D,10)
+        self.d_zz = np.linspace(0,D,10)
+        
     def seed(self, seed):
         """"
         Set random seeds for reproducibility
@@ -251,13 +255,10 @@ class quad():
         # DRAG MOMENTS ESTIMATION (BASED ON BODY ANGULAR VELOCITIES)
         
         #Discretization over 10 steps (linear velocity varies over the body)
-        d_xx = np.linspace(0,D,10)
-        d_yy = np.linspace(0,D,10)
-        d_zz = np.linspace(0,D,10)
         m_x = 0
         m_y = 0
         m_z = 0
-        for xx,yy,zz in zip(d_xx,d_yy,d_zz):
+        for xx,yy,zz in zip(self.d_xx, self.d_yy, self.d_zz):
             m_x += -RHO*C_D*BEAM_THICKNESS*D/10*(abs(xx*w_xx)*(xx*w_xx))
             m_y += -RHO*C_D*BEAM_THICKNESS*D/10*(abs(yy*w_yy)*(yy*w_yy))
             m_z += -2*RHO*C_D*BEAM_THICKNESS*D/10*(abs(zz*w_zz)*(zz*w_zz))
