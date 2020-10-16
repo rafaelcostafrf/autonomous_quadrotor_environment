@@ -5,6 +5,7 @@ class Memory:
         self.logprobs = []
         self.rewards = []
         self.is_terminals = []
+        self.sens = []
     
     def clear_memory(self):
         del self.actions[:]
@@ -12,3 +13,4 @@ class Memory:
         del self.logprobs[:]
         del self.rewards[:]
         del self.is_terminals[:]
+        del self.sens[:]

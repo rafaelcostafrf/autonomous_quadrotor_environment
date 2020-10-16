@@ -55,7 +55,7 @@ DESCRIÇÃO:
     
     
 """
-
+camera_size = 128
 mydir = os.path.abspath(sys.path[0])
 
 mydir = Filename.fromOsSpecific(mydir).getFullpath()
@@ -109,7 +109,7 @@ class MyApp(ShowBase):
         quad_setup(self, render, mydir)
         
         # OPENCV CAMERAS SETUP
-        self.buffer_cameras = cameras(self, frame_interval, cam_names)  
+        self.buffer_cameras = cameras(self, camera_size, frame_interval, cam_names)  
         
         # self.taskMgr.doMethodLater(60, trace_memory, 'memory check')
         # COMPUTER VISION
