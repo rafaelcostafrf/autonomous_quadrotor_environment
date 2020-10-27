@@ -6,7 +6,8 @@ class Memory:
         self.rewards = []
         self.is_terminals = []
         self.sens = []
-    
+        self.last_conv = []
+        
     def clear_memory(self):
         del self.actions[:]
         del self.states[:]
@@ -14,3 +15,4 @@ class Memory:
         del self.rewards[:]
         del self.is_terminals[:]
         del self.sens[:]
+        del self.last_conv[:]
