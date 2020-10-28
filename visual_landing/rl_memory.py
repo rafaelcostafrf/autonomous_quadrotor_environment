@@ -14,5 +14,12 @@ class Memory:
         self.logprobs = np.array([])
         self.rewards = np.array([])
         self.is_terminals = np.array([])
+        
+    def print_memory(self):
+        print(np.shape(self.actions), np.shape(self.states), np.shape(self.rewards))
+        try:
+            print(self.actions[-1], self.states[-1], self.rewards[-1])
+        except:
+            return
 
         

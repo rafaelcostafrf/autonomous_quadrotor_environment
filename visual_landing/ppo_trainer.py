@@ -25,15 +25,15 @@ DESCRIPTION:
 
 
 ## HYPERPARAMETERS - CHANGE IF NECESSARY ##
-lr = 0.0005
-action_std = 0.1
+lr = 0.0001
+action_std = 0.3
 K_epochs = 80
 
 eps_clip = 0.2
 gamma = 0.99
 betas = (0.9, 0.999)
 DEBUG = 0
-BATCH_SIZE = 256
+BATCH_SIZE = 512
 
 
 class PPO:
@@ -108,6 +108,7 @@ class PPO:
         # self.running_stats(rewards)
         # rewards = (rewards - self.running_mean) / (self.running_std + 1e-5)
 
+        
         # convert list to tensor
         old_states = torch.tensor(memory.states).detach().to(self.device)
         old_actions = torch.tensor(memory.actions).detach().to(self.device)
@@ -115,7 +116,7 @@ class PPO:
         old_sens = torch.tensor(memory.sens).detach().to(self.device)
         old_conv = torch.tensor(memory.last_conv).detach().to(self.device)
         with torch.no_grad():
-            _, state_values_adv, _ = self.policy_old.evaluate(old_states, old_sens, old_actions, old_conv)
+            _, state_values_adv, _ = self.policy.evaluate(old_states, old_sens, old_actions, old_conv)
         advantages = rewards - state_values_adv.detach()
         # advantages = (advantages - advantages.mean())/advantages.std()
         # memory.clear_memory()
@@ -124,8 +125,8 @@ class PPO:
         # print('Out 2 Step Training Memory: {:.2f}Mb'.format(process.memory_info().rss/1000000)) 
                # Optimize policy for K epochs:
         for step in range(self.K_epochs): 
-            self.optimizer.zero_grad()
-            rand_batch = torch.randperm(len(old_states))[:BATCH_SIZE]
+
+            rand_batch = torch.randperm(old_states.size()[0])[:BATCH_SIZE]
             old_states_sp = old_states[rand_batch]
             old_actions_sp = old_actions[rand_batch]
             old_logprobs_sp = old_logprobs[rand_batch]
@@ -133,7 +134,7 @@ class PPO:
             old_conv_sp = old_conv[rand_batch]
             rewards_sp = rewards[rand_batch]
             advantages_sp = advantages[rand_batch]
-            
+
             print('\rTraining Progress: {:.2%}'.format(step/self.K_epochs), end='          ')
             # print('----------')
             # Evaluating old actions and values :
@@ -145,14 +146,14 @@ class PPO:
             ratios = torch.exp(logprobs - old_logprobs_sp.detach())
             # print('Before Advantages Step Training Memory: {:.2f}Mb'.format(process.memory_info().rss/1000000)) 
             # Finding Surrogate Loss:
-
             surr1 = ratios * advantages_sp
             surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages_sp
             # print('Before Loss Step Training Memory: {:.2f}Mb'.format(process.memory_info().rss/1000000)) 
             loss = -torch.min(surr1, surr2) + 0.5*self.MseLoss(rewards_sp, state_values) - 0.01*dist_entropy
             # print('Before Gradient Step Training Memory: {:.2f}Mb'.format(process.memory_info().rss/1000000)) 
             # take gradient step
-
+            
+            self.optimizer.zero_grad()
             loss.mean().backward()
             self.optimizer.step()            
             self.loss_memory_step.append(loss.detach().cpu().numpy())
