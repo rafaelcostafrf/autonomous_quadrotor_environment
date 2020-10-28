@@ -29,13 +29,13 @@ T_total = T_visual_time[0]+1
 EVAL_FREQUENCY = 1
 
 TIME_STEP = 0.01
-TOTAL_STEPS = 2000
+TOTAL_STEPS = 4000
 
 IMAGE_LEN = np.array([88, 88])
 TASK_INTERVAL_STEPS = 20
-BATCH_SIZE = 256
-VELOCITY_SCALE = [0.2, 0.2, 0.25]
-VELOCITY_D = [0, 0, -0.25]
+BATCH_SIZE = 512
+VELOCITY_SCALE = [1, 1, 1]
+VELOCITY_D = [0, 0, -VELOCITY_SCALE[2]]
 #CONTROL POLICY
 AUX_DL = dl_in_gen(T, 13, 4)
 state_dim = AUX_DL.deep_learning_in_size
@@ -153,9 +153,10 @@ class quad_worker():
         self.images = np.zeros([T_visual_time[0]+1, IMAGE_LEN[0], IMAGE_LEN[0]])
      
     def image_roll(self, image):
-        self.print_image = image
+        image_copy = np.copy(image)
+        self.print_image = image_copy
         self.images = np.roll(self.images, 1, 0)
-        self.images[0, :, :] = image
+        self.images[0] = image_copy
         # a = np.hstack((self.images[0], self.images[1], self.images[2]))
         # cv.imshow('teste', a)
         # cv.waitKey(1)
@@ -298,7 +299,7 @@ class quad_worker():
         pos = coordinates[0:3]
         ang = coordinates[3:6]
         w = coordinates[6::]
-        
+
         for i, w_i in enumerate(w):
             self.a[i] += (w_i*TIME_STEP)*180/np.pi/10
         ang_deg = (ang[2]*180/np.pi, ang[0]*180/np.pi, ang[1]*180/np.pi)
@@ -309,14 +310,16 @@ class quad_worker():
         self.render.dlightNP.setPos(*pos)
         for prop, a in zip(self.prop_models, self.a):
             prop.setHpr(a, 0, 0)
-        # self.render.graphicsEngine.renderFrame()
+        self.render.graphicsEngine.renderFrame()
            
     def step(self, task):
         if self.ppo_calls > T_total:  
-            image_in = np.array([self.images[T_visual_time[0]], self.images[T_visual_time[1]], self.images[T_visual_time[2]], self.images[T_visual_time[3]]])
-
-            image_plot = self.images[0]
+            image_in = np.copy(self.images)
             
+            image_plot = self.images[0]
+            for image in self.images[1:]:
+                image_plot = np.hstack((image_plot, image))
+                
             if not self.child:
                 cv.imshow('teste', image_plot)
                 cv.waitKey(1)
@@ -328,12 +331,9 @@ class quad_worker():
                 
                 visual_action = visual_action.detach().cpu().numpy().flatten()
 
-                self.reward_accum += self.reward
             else:
                 print('\rBatch Progress: {:.2%}'.format(len(self.memory.states)/BATCH_SIZE), end='          ')
-                if len(self.memory.states) == BATCH_SIZE:
-                    self.visual_done = True
-                    self.train_time = True
+
                 
                 network_in = image_in
                 control_in = torch.Tensor([self.control_network_in]).to(self.device).detach()
@@ -341,9 +341,8 @@ class quad_worker():
               
             self.vel_error = visual_action*VELOCITY_SCALE+VELOCITY_D
             # print(self.vel_error)
-        internal_counter = 0
+        
         for i in range(TASK_INTERVAL_STEPS):
-            internal_counter+=1
             self.internal_frame += 1
             # LOWER CONTROL STEP  
             states_sens = self.sensor_sp()
@@ -359,17 +358,22 @@ class quad_worker():
 
             coordinates = np.concatenate((states[0, 0:5:2], self.quad_env.ang, np.zeros(4))) 
 
-
+            if TASK_INTERVAL_STEPS-i <= T_visual_time[0]+2:
+                self.render_position(coordinates, self.marker_position)
+                image = self.take_picture()
+                self.image_roll(image)
+                
         self.reward, self.last_shaping, self.visual_done = visual_reward(TOTAL_STEPS, self.marker_position, self.quad_env.state[0:5:2], self.quad_env.state[1:6:2], self.vel_error, self.last_shaping, self.internal_frame, self.quad_env.ang)
-
+        if self.eval_flag:
+            self.reward_accum += self.reward
+            
         if self.ppo_calls > T_total and not self.eval_flag:
             self.memory.rewards = np.append(self.memory.rewards, self.reward)            
             self.memory.is_terminals = np.append(self.memory.is_terminals, self.visual_done)   
+            # print(self.images)
+            # self.memory.print_memory()
         
-        self.render_position(coordinates, self.marker_position)
-        # self.render.graphicsEngine.renderFrame()
-        image = self.take_picture()
-        self.image_roll(image)
+        
                 
         # if self.child:
         #     if self.child_number == 0 :
@@ -414,6 +418,8 @@ class quad_worker():
 
         self.ppo_calls += 1   
         # print(self.ppo_calls)
+        if len(self.memory.states) > int(0.95*BATCH_SIZE) and self.visual_done:
+            self.train_time = True
         if self.train_time:
             if self.child:
                 # print('Memory Usage: {:.2f}Mb'.format(process.memory_info().rss/1000000), end='\t')

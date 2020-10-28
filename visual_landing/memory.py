@@ -16,3 +16,5 @@ class Memory:
         del self.is_terminals[:]
         del self.sens[:]
         del self.last_conv[:]
+    
+
