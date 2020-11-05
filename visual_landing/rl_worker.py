@@ -23,19 +23,20 @@ from visual_landing.memory_leak import debug_gpu
 import matplotlib.pyplot as plt
 
 T = 5
-T_visual_time = [3, 2, 1, 0]
+T_visual_time = [6, 4, 2, 0]
 T_visual = len(T_visual_time)
 T_total = T_visual_time[0]+1
 EVAL_FREQUENCY = 1
+EVAL_EPISODES = 2
 
 TIME_STEP = 0.01
-TOTAL_STEPS = 4000
+TOTAL_STEPS = 2000
 
-IMAGE_LEN = np.array([88, 88])
-TASK_INTERVAL_STEPS = 20
-BATCH_SIZE = 512
-VELOCITY_SCALE = [1, 1, 1]
-VELOCITY_D = [0, 0, -VELOCITY_SCALE[2]]
+IMAGE_LEN = np.array([160, 160])
+TASK_INTERVAL_STEPS = 10
+BATCH_SIZE = 256
+VELOCITY_SCALE = [0.5, 0.5, 1]
+VELOCITY_D = [0, 0, -VELOCITY_SCALE[2]/1.5]
 #CONTROL POLICY
 AUX_DL = dl_in_gen(T, 13, 4)
 state_dim = AUX_DL.deep_learning_in_size
@@ -58,14 +59,17 @@ class quad_worker():
         self.cv_cam = cv_cam
         self.ldg_policy = PPO(3, child, T_visual)
         self.train_time = False
-
+        self.batch_size = BATCH_SIZE
         self.child = child
+        self.reward = 0
         if child:
+            self.batch_size = int(BATCH_SIZE*0.65)
             self.child_number = child_number
             self.device = torch.device('cpu')  
         else: 
             self.n_samples = 0
             self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  
+            # self.device = torch.device('cpu') 
         print(self.device)
         
         self.quad_model = render.quad_model
@@ -80,7 +84,7 @@ class quad_worker():
         self.aux_dl =  dl_in_gen(T, 13, 4)
         self.control_network_in = self.aux_dl.dl_input(states, action)
         self.image_zeros() 
-        self.memory = Memory()
+        self.memory = Memory(self.batch_size)
         
         #TASK MANAGING
         self.wait_for_task = False
@@ -110,6 +114,10 @@ class quad_worker():
         self.reward_accum = 0
         self.train_calls = 0
         
+        self.eval_episodes = 0 
+        self.eval_reward = []
+        self.mean_eval = []
+
         #PLOT SETUP
         if not self.child:
             self.time_step_plot = deque(maxlen=PLOT_LENGTH)
@@ -117,7 +125,7 @@ class quad_worker():
             self.efforts_plot = deque(maxlen=PLOT_LENGTH)
             self.vel_plot = deque(maxlen=PLOT_LENGTH)
             self.done_plot = deque(maxlen=PLOT_LENGTH)
-            self.fig, self.axs = plt.subplots(3)
+            self.fig, self.axs = plt.subplots(5)
             self.fig.suptitle('Event Viewer')
             plt.draw()
             plt.pause(1)
@@ -129,9 +137,8 @@ class quad_worker():
         self.render.checker.setPos(*tuple(random_marker_position), 0.001)
         self.marker_position = np.append(random_marker_position, 0.001)
         
-        
         quad_random_z = -5*np.random.random()+1
-        quad_random_xy = self.marker_position[0:2]+(np.random.random(2)-0.5)*quad_random_z/7*5/1.2
+        quad_random_xy = self.marker_position[0:2]+(np.random.random(2)-0.5)*abs(-5-quad_random_z)/7*5
         initial_state = np.array([quad_random_xy[0], 0, quad_random_xy[1], 0, quad_random_z, 0, 1, 0, 0, 0, 0, 0, 0])
         states, action = self.quad_env.reset(initial_state)
         return states, action
@@ -150,31 +157,27 @@ class quad_worker():
             return states_sens
             
     def image_zeros(self):
-        self.images = np.zeros([T_visual_time[0]+1, IMAGE_LEN[0], IMAGE_LEN[0]])
+        self.images = np.zeros([T_visual_time[0]+1, 3, IMAGE_LEN[0], IMAGE_LEN[0]])
      
     def image_roll(self, image):
-        image_copy = np.copy(image)
+
+        image_copy = (image[:, :, 0:3]).copy()
+
+        image_copy = np.swapaxes(image_copy, 2, 0)
+        image_copy = np.swapaxes(image_copy, 1, 2)
+
         self.print_image = image_copy
         self.images = np.roll(self.images, 1, 0)
-        self.images[0] = image_copy
-        # a = np.hstack((self.images[0], self.images[1], self.images[2]))
-        # cv.imshow('teste', a)
-        # cv.waitKey(1)
-        # for i, channel in enumerate(image):
-        #     try:
-        #         image[i] = (channel-np.mean(channel))/np.std(channel)
-        #     except:
-        #         image[i] = (channel-np.mean(channel))
+        self.images[0, :, :, :] = image_copy
         
         
     def take_picture(self):
         ret, image = self.cv_cam.get_image() 
         if ret:
-            return cv.cvtColor(image[:,:,0:3], cv.COLOR_BGR2GRAY)/255.0
-            # print(np.shape(image))
-            # return np.swapaxes(image[:,:,0:3]/255.0, 0, 2)
+            out =  image/255.0
         else:
-            return np.zeros([1, IMAGE_LEN[0], IMAGE_LEN[0]])
+            out = np.zeros([IMAGE_LEN, IMAGE_LEN, 4])
+        return out
    
     def reset(self):
         states, action = self.quad_reset_random()
@@ -191,7 +194,7 @@ class quad_worker():
         #MARKER POSITION
         self.internal_frame = 0
         self.image_zeros()
-        if self.train_time :
+        if self.train_time:
             if self.train_calls % EVAL_FREQUENCY == 0:
                 self.eval_flag = True
                 self.reward_accum = 0
@@ -213,7 +216,6 @@ class quad_worker():
         self.reset()
         self.ldg_policy.policy.load_state_dict(torch.load('./PPO_landing.pth', map_location=self.device))
         self.ldg_policy.policy_old.load_state_dict(torch.load('./PPO_landing_old.pth', map_location=self.device))
-                
    
     
     def child_save_data(self):        
@@ -225,6 +227,7 @@ class quad_worker():
         torch.save(self.memory.is_terminals, child_name+'is_terminals.tch')  
         torch.save(self.memory.sens, child_name+'sens.tch')
         torch.save(self.memory.last_conv, child_name+'last_conv.tch')
+        torch.save(self.memory.state_value, child_name+'state_value.tch')
         self.memory.clear_memory()
         f = open(child_name+'.txt','w')
         f.write(str(1))
@@ -259,6 +262,8 @@ class quad_worker():
                     
                     last_conv_temp = torch.load(child_name+ 'last_conv.tch')
                     
+                    state_value_temp = torch.load(child_name + 'state_value.tch')
+                    
                     self.memory.actions = np.append(self.memory.actions, actions_temp, axis = 0)
                     self.memory.states = np.append(self.memory.states, states_temp, axis = 0)
                     self.memory.logprobs = np.append(self.memory.logprobs, logprobs_temp, axis = 0)
@@ -266,6 +271,7 @@ class quad_worker():
                     self.memory.is_terminals = np.append(self.memory.is_terminals, is_terminals_temp, axis = 0) 
                     self.memory.sens = np.append(self.memory.sens, sens_temp, axis = 0)
                     self.memory.last_conv = np.append(self.memory.last_conv, last_conv_temp, axis=0)
+                    self.memory.state_value = np.append(self.memory.state_value, state_value_temp, axis=0)
                     del actions_temp
                     del states_temp
                     del logprobs_temp
@@ -273,11 +279,11 @@ class quad_worker():
                     del is_terminals_temp
                     del sens_temp
                     del last_conv_temp
+                    del state_value_temp
                     break
                 else:                            
                     time.sleep(0.1)
         self.n_samples += len(self.memory.rewards)
-        print('\nTotal Number of Samples: {:d}'.format(self.n_samples), end='\t')           
         self.ldg_policy.update(self.memory)   
         self.memory.clear_memory()
         self.reset()
@@ -313,77 +319,49 @@ class quad_worker():
         self.render.graphicsEngine.renderFrame()
            
     def step(self, task):
-        if self.ppo_calls > T_total:  
-            image_in = np.copy(self.images)
+        visual_action = np.zeros(3)
+        if self.ppo_calls >=1:
+            image_in = self.images[T_visual_time]
             
-            image_plot = self.images[0]
-            for image in self.images[1:]:
-                image_plot = np.hstack((image_plot, image))
-                
-            if not self.child:
-                cv.imshow('teste', image_plot)
-                cv.waitKey(1)
             if self.eval_flag:                
-                network_in = torch.Tensor(image_in).to(self.device).detach()
+                network_in = torch.Tensor(np.swapaxes(image_in,1,0)).to(self.device).detach()    
                 control_in = torch.Tensor([self.control_network_in]).to(self.device).detach()
                 network_in = torch.unsqueeze(network_in, 0)
-                visual_action, _ = self.ldg_policy.policy_old(network_in, control_in, torch.zeros([1,3]).to(self.device))
-                
+                visual_action = self.ldg_policy.policy_old(network_in, control_in)                
                 visual_action = visual_action.detach().cpu().numpy().flatten()
-
+    
             else:
-                print('\rBatch Progress: {:.2%}'.format(len(self.memory.states)/BATCH_SIZE), end='          ')
-
-                
-                network_in = image_in
+                network_in = np.swapaxes(image_in,1,0)
+                training_percentage = ((self.train_calls%EVAL_FREQUENCY*self.batch_size)+self.memory.index)/(self.batch_size*EVAL_FREQUENCY)
+                print('\rTraining Progress: {:.2%}'.format(training_percentage), end='\t')    
                 control_in = torch.Tensor([self.control_network_in]).to(self.device).detach()
                 visual_action, self.old_conv = self.ldg_policy.select_action(network_in, control_in, self.old_conv, self.memory)
               
             self.vel_error = visual_action*VELOCITY_SCALE+VELOCITY_D
-            # print(self.vel_error)
+
         
         for i in range(TASK_INTERVAL_STEPS):
             self.internal_frame += 1
-            # LOWER CONTROL STEP  
             states_sens = self.sensor_sp()
-            # CONTROL DIFFERENCE
             error = np.array([[0, self.vel_error[0], 0, self.vel_error[1], 0, self.vel_error[2], 0, 0, 0, 0, 0, 0, 0, 0]])
-
             self.control_network_in = self.aux_dl.dl_input(states_sens-error, [self.crtl_action])
             crtl_network_in = torch.FloatTensor(self.control_network_in).to('cpu')
-
             self.crtl_action = CRTL_POLICY.actor(crtl_network_in).cpu().detach().numpy()
-
             states, _, _ = self.quad_env.step(self.crtl_action)
-
             coordinates = np.concatenate((states[0, 0:5:2], self.quad_env.ang, np.zeros(4))) 
+            self.render_position(coordinates, self.marker_position)
+            image = self.take_picture()
+            self.image_roll(image)            
+            if self.quad_env.state[4] < -4.95:
+                break
+        
+        self.reward, self.last_shaping, self.visual_done = visual_reward(TOTAL_STEPS, self.marker_position, self.quad_env.state[0:5:2], self.quad_env.state[1:6:2], visual_action, self.last_shaping, self.internal_frame, self.quad_env.ang, self.quad_env.state[-3:])            
+        if self.ppo_calls >= 1:                   
+            if self.eval_flag:
+                self.reward_accum += self.reward
+            if not self.eval_flag: 
+                self.memory.append_memory_rt(self.reward, self.visual_done)
 
-            if TASK_INTERVAL_STEPS-i <= T_visual_time[0]+2:
-                self.render_position(coordinates, self.marker_position)
-                image = self.take_picture()
-                self.image_roll(image)
-                
-        self.reward, self.last_shaping, self.visual_done = visual_reward(TOTAL_STEPS, self.marker_position, self.quad_env.state[0:5:2], self.quad_env.state[1:6:2], self.vel_error, self.last_shaping, self.internal_frame, self.quad_env.ang)
-        if self.eval_flag:
-            self.reward_accum += self.reward
-            
-        if self.ppo_calls > T_total and not self.eval_flag:
-            self.memory.rewards = np.append(self.memory.rewards, self.reward)            
-            self.memory.is_terminals = np.append(self.memory.is_terminals, self.visual_done)   
-            # print(self.images)
-            # self.memory.print_memory()
-        
-        
-                
-        # if self.child:
-        #     if self.child_number == 0 :
-        #         for i, image in enumerate(self.images):
-        #             if i == 0:
-        #                 a = image
-        #             else:
-        #                 a = np.hstack((a, image))
-        #         cv.imshow('teste',a)
-        #         cv.waitKey(1)
                 
         
         
@@ -417,31 +395,42 @@ class quad_worker():
 
 
         self.ppo_calls += 1   
-        # print(self.ppo_calls)
-        if len(self.memory.states) > int(0.95*BATCH_SIZE) and self.visual_done:
+
+        if self.memory.index > int(0.85*self.batch_size) and self.visual_done:
             self.train_time = True
+            self.memory.close_memory()
         if self.train_time:
             if self.child:
-                # print('Memory Usage: {:.2f}Mb'.format(process.memory_info().rss/1000000), end='\t')
                 self.child_save_data()
                 self.train_calls += 1
                 self.reset_policy()
             else:   
-                # print('Before Training Memory: {:.2f}Mb'.format(process.memory_info().rss/1000000), end='\t')
+                self.train_calls += 1
                 self.mother_train()
                 self.axs[2].clear()
                 self.axs[2].grid()
-                self.train_calls += 1
-                self.axs[2].plot(np.arange(0,self.train_calls), self.ldg_policy.loss_memory)
-                # print('After Training Memory: {:.2f}Mb'.format(process.memory_info().rss/1000000))
-
+                self.axs[2].plot(np.arange(0,self.train_calls), self.ldg_policy.critic_loss_memory)
+                self.axs[3].clear()
+                self.axs[3].grid()
+                self.axs[3].plot(np.arange(0,self.train_calls), self.ldg_policy.actor_loss_memory)
                 
         if self.visual_done:
             if self.eval_flag:
-                self.eval_flag = False
-                print('Episode Evaluation: {:.2f}'.format(self.reward_accum), end = '                                                \n')
+                self.eval_episodes += 1
+                self.eval_reward.append(self.reward_accum)
                 self.reward_accum = 0
-            # print('Step Memory: {:.2f}Mb'.format(process.memory_info().rss/1000000)) 
+                if self.eval_episodes == EVAL_EPISODES:
+                    self.eval_episodes = 0
+                    self.eval_flag = False
+                    self.mean_eval.append(np.mean(self.eval_reward))
+                    self.eval_reward = []
+                    if not self.child:
+                        self.axs[4].clear()
+                        self.axs[4].grid()
+                        self.axs[4].plot(np.arange(0,len(self.mean_eval)), self.mean_eval)
+                        print('Total Steps: {:d}'.format(self.n_samples),end='\t')
+                    print('Evaluation Mean: {:.2f}'.format(self.mean_eval[-1]))
+
             self.reset()
 
         

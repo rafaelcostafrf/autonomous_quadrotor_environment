@@ -96,7 +96,7 @@ def quad_setup(env, render, mydir):
     
     env.checker = env.loader.loadModel(mydir + '/models/target_final.egg')
     env.checker.reparentTo(env.render)
-    env.checker_scale = 1
+    env.checker_scale = 0.5
     env.checker_sqr_size = 0.2046
     env.checker.setScale(env.checker_scale, env.checker_scale, 1)
     

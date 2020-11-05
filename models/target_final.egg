@@ -16,7 +16,7 @@
 }
 
 <Texture> Texture {
-  "./tex/target1.png"
+  "./tex/target2.png"
   <Scalar> envtype { MODULATE }
   <Scalar> minfilter { LINEAR_MIPMAP_LINEAR }
   <Scalar> magfilter { LINEAR_MIPMAP_LINEAR }
