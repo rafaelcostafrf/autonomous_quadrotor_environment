@@ -92,7 +92,7 @@ def quad_setup(env, render, mydir):
     
     env.checker = env.loader.loadModel(mydir + '/models/checkerboard.egg')
     env.checker.reparentTo(env.render)
-    env.checker_scale = 0.5
+    env.checker_scale = 0.25
     env.checker_sqr_size = 0.2046
     env.checker.setScale(env.checker_scale, env.checker_scale, 1)
     env.checker.setPos(3*env.checker_scale*env.checker_sqr_size+0.06, 2.5*env.checker_scale*env.checker_sqr_size+0.06, 0.001)

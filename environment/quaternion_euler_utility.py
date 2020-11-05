@@ -47,6 +47,13 @@ def quat_euler(q):
         print('Divergencia na conversao Quaternion - Euler')
     return np.array([phi, theta, psi])
 
+def quat_euler_2(q):
+    phi = np.arctan2(2*(q[0]*q[1]+q[2]*q[3]), 1-2*(q[1]**2+q[2]**2))
+    theta = np.arcsin(2*(q[0]*q[2]-q[3]*q[1]))
+    psi = np.arctan2(2*(q[0]*q[3]+q[1]*q[2]), 1-2*(q[2]**2+q[3]**2))
+    if any(np.isnan([phi, theta, psi])):
+        print('Divergencia na conversao Quaternion - Euler')
+    return np.array([phi, theta, psi])
 
 def deriv_quat(w, q):
     w = w.flatten()
