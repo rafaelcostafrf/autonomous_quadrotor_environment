@@ -20,10 +20,10 @@ DESCRIPTION:
     PPO neural network model
     hidden layers has 64 neurons
 """
-H0 = 1024
-H1 = 256
-H11 = 64
-H2 = 128
+H0 = 2**12
+H1 = 2**11
+H11 = 128
+H2 = 2**10
 SENS_SIZE = 75
 class Flatten(nn.Module):
     def forward(self, input):
@@ -31,7 +31,7 @@ class Flatten(nn.Module):
     
 def plot_conv(x, name):
     for channel in x[0]:
-        image = ((channel-channel.mean())/channel.std()).detach().cpu().numpy()
+        image = ((channel-channel.min())/(channel.max()-channel.min()+1e-8)).detach().cpu().numpy()
     cv.imshow('conv_in_'+str(name), image)
     cv.waitKey(1)
     return
@@ -44,14 +44,15 @@ def plot_conv3D(x, name):
     return
 
 class conv_forward(nn.Module):
-    def __init__(self, T):
+    def __init__(self, T, child):
+        self.child = child
         super(conv_forward, self).__init__()
         
-        self.conv_1 = nn.Conv2d(in_channels = 1, out_channels = 32, kernel_size=(7,7), stride=(1,1), padding=(3, 3))
-        self.conv_2 = nn.Conv2d(in_channels = 32, out_channels = 128, kernel_size=(7,7), stride=(1,1), padding=(3, 3))
-        self.conv_3 = nn.Conv2d(in_channels = 128, out_channels = 256, kernel_size=(5,5), stride=(1,1), padding=(2, 2))
-        self.conv_4 = nn.Conv2d(in_channels = 256, out_channels = 128, kernel_size=(2,2), stride=(1,1), padding=(1, 1))
-        self.fc_1 = nn.Linear(128*6**2, H0)
+        self.conv_1 = nn.Conv2d(in_channels = 3, out_channels = 100, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
+        self.conv_2 = nn.Conv2d(in_channels = 100, out_channels = 200, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
+        self.conv_3 = nn.Conv2d(in_channels = 200, out_channels = 300, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
+        # self.conv_4 = nn.Conv2d(in_channels = 256, out_channels = 128, kernel_size=(2,2), stride=(1,1), padding=(1, 1))
+        self.fc_1 = nn.Linear(300*12**2, H0)
         
     def forward(self, x):
 
@@ -66,7 +67,8 @@ class conv_forward(nn.Module):
 
         x = F.elu(self.conv_3(x))
         x = torch.max_pool2d(x, 2)
-        # plot_conv(x, 3)
+        # if not self.child:
+        #     plot_conv(x, 3)
         
         # x = torch.tanh(self.conv_4(x))
         # x = torch.max_pool2d(x, 2)
@@ -80,30 +82,30 @@ class conv3D_forward(nn.Module):
     def __init__(self, T, child):
         super(conv3D_forward, self).__init__()
         self.mother = not(child)
-        self.conv_1 = nn.Conv3d(in_channels = 3, out_channels = 32, kernel_size=(2,8,8), stride=(1,2,2), padding=(0, 3, 3))
-        self.conv_2 = nn.Conv3d(in_channels = 32, out_channels = 64, kernel_size=(2,4,4), stride=(1,2,2), padding=(0, 1, 1))
-        self.conv_3 = nn.Conv3d(in_channels = 64, out_channels = 64, kernel_size=(2,3,3), stride=(1,1,1), padding=(0, 1, 1))
-        self.fc_1 = nn.Linear(64*1*10**2, H0)
+        self.conv_1 = nn.Conv3d(in_channels = 3, out_channels = 60, kernel_size=(2,3,3), stride=(1,1,1), padding=(0, 1, 1))
+        self.conv_2 = nn.Conv3d(in_channels = 60, out_channels = 120, kernel_size=(2,3,3), stride=(1,1,1), padding=(0, 1, 1))
+        self.conv_3 = nn.Conv2d(in_channels = 120, out_channels = 180, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
+        self.fc_1 = nn.Linear(180*10**2, H0)
         
     def forward(self, x):
-        x = torch.tanh(self.conv_1(x))
-        # x = torch.max_pool3d(x, (1,2,2))
+        x = F.elu(self.conv_1(x))
+        x = torch.max_pool3d(x, (1,2,2))
         # if self.mother:
         #     plot_conv3D(x, 1)
 
-        x = torch.tanh(self.conv_2(x))
+        x = F.elu(self.conv_2(x))
         x = torch.max_pool3d(x, (1,2,2))
         # if self.mother:
         #     plot_conv3D(x, 2)
         
-
-        x = torch.tanh(self.conv_3(x))
-        x = torch.max_pool3d(x, (1,2,2))
+        x = torch.squeeze(x, dim=2)
+        x = F.elu(self.conv_3(x))
+        x = torch.max_pool2d(x, (2,2))
         # if self.mother:
         #     plot_conv3D(x, 3)
 
         # print(x.size())        
-        x = self.fc_1(torch.flatten(x, start_dim=1))
+        x = F.elu(self.fc_1(torch.flatten(x, start_dim=1)))
 
         return x
 
@@ -120,6 +122,12 @@ class actor_nn(nn.Module):
     def forward(self, image, sens):
         # print('Actor')
         x = self.conv_ac(image)
+        # x_2 = self.conv_ac(image[:,1,:,:,:])
+        # x_3 = self.conv_ac(image[:,2,:,:,:])
+        # x_4 = self.conv_ac(image[:,3,:,:,:])
+        # x = torch.cat((x_1, x_2, x_3, x_4), dim=1)
+        # x = torch.cat((x_1, x_2), dim=1)
+        # x = self.conv_ac(image)
         x = torch.cat((x, sens), dim=1)
         x = torch.tanh(self.fc_1(x))
         x = torch.tanh(self.fc_2(x))        
@@ -143,6 +151,13 @@ class critic_nn(nn.Module):
         # print('Critic')
         # print(x)
         x = self.conv_ct(image)
+        # x_1 = self.conv_ct(image[:,0,:,:,:])
+        # x_2 = self.conv_ct(image[:,1,:,:,:])
+        # x_3 = self.conv_ct(image[:,2,:,:,:])
+        # x_4 = self.conv_ct(image[:,3,:,:,:])
+        # x = torch.cat((x_1, x_2, x_3, x_4), dim=1)
+        # x = torch.cat((x_1, x_2), dim=1)
+        # x = self.conv_ct(image)
         x = torch.cat((x, sens, action), dim=1)
         x = torch.tanh(self.fc_1(x))
         x = torch.tanh(self.fc_2(x))   
@@ -166,7 +181,7 @@ class ActorCritic(nn.Module):
         self.critic_nn = critic_nn(T, child).to(self.device)
         
         self.action_var = torch.full((action_dim,), action_std*action_std, device = self.device, dtype=torch.float)
-        self.action_log_std = torch.full((1, action_dim),action_std, device=self.device)
+        self.action_log_std = torch.full((1, action_dim), action_std, device=self.device)
     
     def __get_dist(self, action_mean):
         action_log_std = self.action_log_std.expand_as(action_mean).to(self.device)
@@ -194,7 +209,7 @@ class ActorCritic(nn.Module):
         state_value = self.critic(state, sens, action)
         
         
-        action_logprob = dist.log_prob(action).sum(-1)
+        action_logprob = dist.log_prob(action)
         memory.append_memory_as(action.detach().cpu().numpy(), state.detach().cpu().numpy(), action_logprob.detach().cpu().numpy(), sens.detach().cpu().numpy(), state_value.detach().cpu().numpy())
             
         action = action.detach().cpu().numpy().flatten()       
@@ -206,7 +221,7 @@ class ActorCritic(nn.Module):
 
         dist = self.__get_dist(action_mean)
         
-        action_logprobs = dist.log_prob(action).sum(-1)
-        dist_entropy = dist.entropy().sum(-1)
+        action_logprobs = dist.log_prob(action)
+        dist_entropy = dist.entropy()
         state_value = self.critic(state, sens, action)
         return action_logprobs, torch.squeeze(state_value), dist_entropy
