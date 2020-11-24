@@ -23,18 +23,22 @@ from visual_landing.memory_leak import debug_gpu
 import matplotlib.pyplot as plt
 
 T = 5
-T_visual_time = [6, 4, 2, 0]
+T_visual_time = [2, 1, 0]
 T_visual = len(T_visual_time)
 T_total = T_visual_time[0]+1
-EVAL_FREQUENCY = 1
-EVAL_EPISODES = 2
+EVAL_FREQUENCY = 10
+EVAL_EPISODES = 20
 
 TIME_STEP = 0.01
-TOTAL_STEPS = 2000
+TOTAL_STEPS = 1500
 
-IMAGE_LEN = np.array([160, 160])
+IMAGE_LEN = np.array([80, 80])
+IMAGE_CHANNELS = 3
+IMAGE_TIME = T_visual
+
+
 TASK_INTERVAL_STEPS = 10
-BATCH_SIZE = 256
+BATCH_SIZE = 2**10
 VELOCITY_SCALE = [0.5, 0.5, 1]
 VELOCITY_D = [0, 0, -VELOCITY_SCALE[2]/1.5]
 #CONTROL POLICY
@@ -84,7 +88,7 @@ class quad_worker():
         self.aux_dl =  dl_in_gen(T, 13, 4)
         self.control_network_in = self.aux_dl.dl_input(states, action)
         self.image_zeros() 
-        self.memory = Memory(self.batch_size)
+        self.memory = Memory(self.batch_size, IMAGE_LEN, IMAGE_TIME, IMAGE_CHANNELS)
         
         #TASK MANAGING
         self.wait_for_task = False
@@ -108,7 +112,7 @@ class quad_worker():
         self.cv_cam = cv_cam
         self.cv_cam.cam.setPos(0, 0, 0)
         self.cv_cam.cam.setHpr(0, 270, 0)
-        self.cv_cam.cam.reparentTo(self.render.quad_model)
+        # self.cv_cam.cam.reparentTo(self.render.quad_model)
                
         self.eval_flag = False
         self.reward_accum = 0
@@ -157,24 +161,42 @@ class quad_worker():
             return states_sens
             
     def image_zeros(self):
-        self.images = np.zeros([T_visual_time[0]+1, 3, IMAGE_LEN[0], IMAGE_LEN[0]])
+        self.images = np.zeros([T_visual_time[0]+1, IMAGE_CHANNELS, IMAGE_LEN[0], IMAGE_LEN[0]])
      
+    def normalize_hsv(self, image):
+        image[0] = image[0]/90-1
+        image[1] = image[1]/50-1
+        image[2] = image[2]/50-1
+        return image      
+    
     def image_roll(self, image):
 
         image_copy = (image[:, :, 0:3]).copy()
-
+        # image_copy = image_.copy()
+        self.print_image = cv.cvtColor(image_copy, cv.COLOR_HSV2BGR)
+        
         image_copy = np.swapaxes(image_copy, 2, 0)
         image_copy = np.swapaxes(image_copy, 1, 2)
 
-        self.print_image = image_copy
-        self.images = np.roll(self.images, 1, 0)
-        self.images[0, :, :, :] = image_copy
         
+        image_copy = self.normalize_hsv(image_copy)
+        
+        self.images = np.roll(self.images, 1, 0)
+        self.images[0, :, :, :] = image_copy  
+        
+    def image_plot(self):
+        total = self.print_image
+        # total = self.images[T_visual_time[0]]
+        # for t in T_visual_time[1:]:
+        #     total = np.hstack((total, self.images[t]))
+        cv.imshow('Imagem',total)
+        cv.waitKey(1)
         
     def take_picture(self):
         ret, image = self.cv_cam.get_image() 
         if ret:
-            out =  image/255.0
+            # out =  cv.cvtColor(image, cv.COLOR_BGR2GRAY)/255.0
+             out =  cv.cvtColor(image, cv.COLOR_BGR2HSV)
         else:
             out = np.zeros([IMAGE_LEN, IMAGE_LEN, 4])
         return out
@@ -313,6 +335,7 @@ class quad_worker():
         
         self.quad_model.setPos(*pos)
         self.quad_model.setHpr(*ang_deg)
+        self.cv_cam.cam.setPos(*pos)
         self.render.dlightNP.setPos(*pos)
         for prop, a in zip(self.prop_models, self.a):
             prop.setHpr(a, 0, 0)
@@ -322,16 +345,18 @@ class quad_worker():
         visual_action = np.zeros(3)
         if self.ppo_calls >=1:
             image_in = self.images[T_visual_time]
-            
+            self.image_plot()
             if self.eval_flag:                
                 network_in = torch.Tensor(np.swapaxes(image_in,1,0)).to(self.device).detach()    
-                control_in = torch.Tensor([self.control_network_in]).to(self.device).detach()
+                # network_in = torch.tensor(image_in, dtype=torch.float).to(self.device).detach()    
+                control_in = torch.tensor([self.control_network_in], dtype=torch.float).to(self.device).detach()
                 network_in = torch.unsqueeze(network_in, 0)
                 visual_action = self.ldg_policy.policy_old(network_in, control_in)                
                 visual_action = visual_action.detach().cpu().numpy().flatten()
     
             else:
                 network_in = np.swapaxes(image_in,1,0)
+                # network_in = image_in
                 training_percentage = ((self.train_calls%EVAL_FREQUENCY*self.batch_size)+self.memory.index)/(self.batch_size*EVAL_FREQUENCY)
                 print('\rTraining Progress: {:.2%}'.format(training_percentage), end='\t')    
                 control_in = torch.Tensor([self.control_network_in]).to(self.device).detach()
@@ -345,15 +370,15 @@ class quad_worker():
             states_sens = self.sensor_sp()
             error = np.array([[0, self.vel_error[0], 0, self.vel_error[1], 0, self.vel_error[2], 0, 0, 0, 0, 0, 0, 0, 0]])
             self.control_network_in = self.aux_dl.dl_input(states_sens-error, [self.crtl_action])
-            crtl_network_in = torch.FloatTensor(self.control_network_in).to('cpu')
+            crtl_network_in = torch.tensor(self.control_network_in, dtype=torch.float, device=self.device)
             self.crtl_action = CRTL_POLICY.actor(crtl_network_in).cpu().detach().numpy()
             states, _, _ = self.quad_env.step(self.crtl_action)
             coordinates = np.concatenate((states[0, 0:5:2], self.quad_env.ang, np.zeros(4))) 
             self.render_position(coordinates, self.marker_position)
             image = self.take_picture()
             self.image_roll(image)            
-            if self.quad_env.state[4] < -4.95:
-                break
+            # if self.quad_env.state[4] < -4.95:
+            #     break
         
         self.reward, self.last_shaping, self.visual_done = visual_reward(TOTAL_STEPS, self.marker_position, self.quad_env.state[0:5:2], self.quad_env.state[1:6:2], visual_action, self.last_shaping, self.internal_frame, self.quad_env.ang, self.quad_env.state[-3:])            
         if self.ppo_calls >= 1:                   

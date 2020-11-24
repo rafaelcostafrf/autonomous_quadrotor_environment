@@ -25,17 +25,17 @@ DESCRIPTION:
 
 
 ## HYPERPARAMETERS - CHANGE IF NECESSARY ##
-lr_ac = 0.00001
-lr_ct = 0.005
+lr_ac = 0.000001
+lr_ct = 0.000001
 
-action_std = 0.35
-K_epochs = 2
+action_std = 0.1
+K_epochs = 8
 
 eps_clip = 0.2
 gamma = 0.99
 betas = (0.9, 0.999)
 DEBUG = 0
-BATCH_SIZE = 100
+BATCH_SIZE = 48
 
 
 class PPO:
@@ -103,7 +103,7 @@ class PPO:
         old_sens_sp = old_sens[rand_batch].detach()
         old_conv_sp = old_conv[rand_batch].detach()
         rewards_sp = rewards[rand_batch].detach()
-        advantages_sp = advantages[rand_batch].detach()
+        advantages_sp = torch.unsqueeze(advantages[rand_batch].detach(), 1)
         
         # print(old_states_sp.size(), old_actions_sp.size(), old_logprobs_sp.size(), old_sens_sp.size(), old_conv_sp.size(), rewards_sp.size(), advantages_sp.size())
         logprobs, state_values, dist_entropy = self.policy.evaluate(old_states_sp, old_sens_sp, old_actions_sp, old_conv_sp)
@@ -118,17 +118,18 @@ class PPO:
         critic_loss = torch.square(state_values - rewards_sp)
         
         entropy_loss = dist_entropy
-        
 
-        loss = -(actor_loss - 0.1*critic_loss + 0.01*entropy_loss)
+        loss_ac = -actor_loss - 0.01*entropy_loss
         
-        loss.mean().backward()
+        loss_ac.mean().backward()
         # torch.nn.utils.clip_grad_norm_(self.policy.parameters(), max_norm=0.5)
-        self.optimizer_ct.step()
         self.optimizer_ac.step()
-        
-        self.critic_epoch_loss.append(critic_loss.detach().cpu().numpy())
-        self.actor_epoch_loss.append(actor_loss.detach().cpu().numpy())
+        loss_ct = 0.5*critic_loss
+        loss_ct.mean().backward()
+        self.optimizer_ct.step()
+
+        self.critic_epoch_loss.append(critic_loss.mean().detach().cpu().numpy())
+        self.actor_epoch_loss.append(actor_loss.mean().detach().cpu().numpy())
         
     def update(self, memory):
         # print('Out Step Training Memory: {:.2f}Mb'.format(process.memory_info().rss/1000000)) 
@@ -142,7 +143,7 @@ class PPO:
             rewards.insert(0, discounted_reward)
 
         # Normalizing the rewards:
-        rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
+        rewards = torch.tensor(rewards, dtype=torch.float).to(self.device)
         # self.running_stats(rewards)
         # rewards = (rewards - self.running_mean) / (self.running_std + 1e-5)
 
@@ -154,10 +155,11 @@ class PPO:
         old_sens = torch.tensor(memory.sens).detach().to(self.device, dtype=torch.float)
         old_conv = torch.tensor(memory.last_conv).detach().to(self.device, dtype=torch.float)
         state_values = torch.tensor(memory.state_value).detach().to(self.device, dtype=torch.float)
+        print(rewards.size(), state_values.size())
         advantages = rewards - state_values.detach()
 
         # print(advantages[-20:])
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8).detach()
 
         # memory.clear_memory()
         # print(old_states.size(), old_actions.size(), state_values.size(), old_logprobs.size())
@@ -168,14 +170,13 @@ class PPO:
         for step_j in range(self.K_epochs):
             rand_total = torch.randperm(old_states.size()[0], device=self.device)
             total_range = int(old_states.size()[0]/BATCH_SIZE)
-            rest_range = old_states.size()[0]%BATCH_SIZE
             for step_i in range(total_range): 
-                
                 rand_batch = rand_total[step_i*BATCH_SIZE:(step_i+1)*BATCH_SIZE]
                 self.optimizer_step(old_states, old_actions, old_logprobs, old_sens, old_conv, rewards, advantages, rand_batch)
-              
-            # rand_batch = rand_total[-rest_range:]
-            # self.optimizer_step(old_states, old_actions, old_logprobs, old_sens, old_conv, rewards, advantages, rand_batch)
+            rest_range = old_states.size()[0]%BATCH_SIZE
+            if rest_range != 0:                  
+                rand_batch = rand_total[-rest_range:]
+                self.optimizer_step(old_states, old_actions, old_logprobs, old_sens, old_conv, rewards, advantages, rand_batch)
             
         self.critic_loss_memory.append(np.mean(self.critic_epoch_loss))
         self.actor_loss_memory.append(np.mean(self.actor_epoch_loss))
