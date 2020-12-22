@@ -20,10 +20,10 @@ DESCRIPTION:
     PPO neural network model
     hidden layers has 64 neurons
 """
-H0 = 2**12
-H1 = 2**11
+H0 = 256
+H1 = 256
 H11 = 128
-H2 = 2**10
+H2 = 256
 SENS_SIZE = 75
 class Flatten(nn.Module):
     def forward(self, input):
@@ -48,11 +48,11 @@ class conv_forward(nn.Module):
         self.child = child
         super(conv_forward, self).__init__()
         
-        self.conv_1 = nn.Conv2d(in_channels = 3, out_channels = 100, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
-        self.conv_2 = nn.Conv2d(in_channels = 100, out_channels = 200, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
-        self.conv_3 = nn.Conv2d(in_channels = 200, out_channels = 300, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
+        self.conv_1 = nn.Conv2d(in_channels = 3, out_channels = 50, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
+        self.conv_2 = nn.Conv2d(in_channels = 50, out_channels = 100, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
+        self.conv_3 = nn.Conv2d(in_channels = 100, out_channels = 150, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
         # self.conv_4 = nn.Conv2d(in_channels = 256, out_channels = 128, kernel_size=(2,2), stride=(1,1), padding=(1, 1))
-        self.fc_1 = nn.Linear(300*12**2, H0)
+        self.fc_1 = nn.Linear(150*256, H0)
         
     def forward(self, x):
 

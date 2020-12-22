@@ -12,7 +12,7 @@ process = psutil.Process(os.getpid())
 # ENVIRONMENT AND CONTROLLER SETUP
 from environment.quadrotor_env_opt import quad, sensor
 from environment.quaternion_euler_utility import deriv_quat
-from environment.controller.model import ActorCritic
+from environment.controller.model import ActorCritic_old
 from environment.controller.dl_auxiliary import dl_in_gen
 from collections import deque
 
@@ -38,19 +38,19 @@ IMAGE_TIME = T_visual
 
 
 TASK_INTERVAL_STEPS = 10
-BATCH_SIZE = 2**10
+BATCH_SIZE = 2000
 VELOCITY_SCALE = [0.5, 0.5, 1]
 VELOCITY_D = [0, 0, -VELOCITY_SCALE[2]/1.5]
 #CONTROL POLICY
 AUX_DL = dl_in_gen(T, 13, 4)
 state_dim = AUX_DL.deep_learning_in_size
-CRTL_POLICY = ActorCritic(state_dim, action_dim=4, action_std=0)
-try:
-    CRTL_POLICY.load_state_dict(torch.load('./environment/controller/PPO_continuous_solved_drone.pth'))
-    print('Saved Control policy loaded')
-except:
-    print('Could not load Control policy')
-    sys.exit(1)  
+CRTL_POLICY = ActorCritic_old(state_dim, action_dim=4, action_std=0)
+# try:
+CRTL_POLICY.load_state_dict(torch.load('./environment/controller/PPO_continuous_drone_velocity_solved.pth'))
+print('Saved Control policy loaded')
+# except:
+#     print('Could not load Control policy')
+#     sys.exit(1)  
 
 PLOT_LENGTH = 100
 CONV_SIZE = 256
@@ -189,8 +189,8 @@ class quad_worker():
         # total = self.images[T_visual_time[0]]
         # for t in T_visual_time[1:]:
         #     total = np.hstack((total, self.images[t]))
-        cv.imshow('Imagem',total)
-        cv.waitKey(1)
+        # cv.imshow('Imagem',total)
+        # cv.waitKey(1)
         
     def take_picture(self):
         ret, image = self.cv_cam.get_image() 

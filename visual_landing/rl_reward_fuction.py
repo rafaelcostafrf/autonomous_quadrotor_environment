@@ -34,12 +34,12 @@ def visual_reward(total_steps, marker_position, quad_position, quad_vel, control
 
     """
     done = False
-    error_p = 20
-    control_p = 4
+    error_p = 1
+    control_p = 0.05
     vel_p = 3
     reward = 0
     cascading_error = [0.3, 1, 2, 5]
-    cascading_rew = [100, 20, 10, 5]
+    cascading_rew = [4, 3, 2, 1]
     marker_position = marker_position-np.array([0, 0, 5])
     
     error_xy = np.linalg.norm(marker_position[0:2]-quad_position[0:2])
@@ -56,7 +56,7 @@ def visual_reward(total_steps, marker_position, quad_position, quad_vel, control
 
 
                 
-    current_shaping = -error_p*(error_xy*5+error_z)+cas_shap
+    current_shaping = -error_p*(error_xy*2+error_z)+cas_shap
    
     soft_landed = True if np.linalg.norm(quad_vel) < np.linalg.norm(np.ones(3)*0.30) else False    
     landed = True if quad_position[2] <= -4.95 else False
@@ -66,31 +66,31 @@ def visual_reward(total_steps, marker_position, quad_position, quad_vel, control
     max_steps = True if step > total_steps else False
 
     if last_shaping:
-        reward += current_shaping - last_shaping - control_p*control_effort - vel_p*np.linalg.norm(quad_vel)/np.linalg.norm([0.5, 0.5 , 1]) 
+        reward += current_shaping - last_shaping - control_p*control_effort
         # reward = current_shaping - control_p*control_effort - vel_p*np.linalg.norm(quad_vel)/np.linalg.norm([1,1,2])
     else:
-        reward += - control_p*control_effort - vel_p*np.linalg.norm(quad_vel)/np.linalg.norm([1,1,2])
+        reward += - control_p*control_effort
         # reward = current_shaping - control_p*control_effort - vel_p*np.linalg.norm(quad_vel)/np.linalg.norm([1,1,2])
     
     if landed:
         if soft_landed:
             if flat_landed:
                 if on_target:
-                    reward = 200
+                    reward = 5
                     print('SOLVED!')
                 else:
-                    reward = 30
+                    reward = 1
             else:
                 # print(ang[0:2])
                 reward = 0
         else:
-            reward = -50
+            reward = -1
         done = True
     elif astray:
-        reward = -200
+        reward = -2
         done = True
     if max_steps:
-        reward = -200
+        reward = -2
         done = True
 
     

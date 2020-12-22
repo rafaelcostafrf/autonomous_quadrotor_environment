@@ -25,17 +25,17 @@ DESCRIPTION:
 
 
 ## HYPERPARAMETERS - CHANGE IF NECESSARY ##
-lr_ac = 0.000001
-lr_ct = 0.000001
+lr_ac = 0.0001
+lr_ct = 0.0001
 
-action_std = 0.1
-K_epochs = 8
+action_std = 0.15
+K_epochs = 4
 
 eps_clip = 0.2
 gamma = 0.99
 betas = (0.9, 0.999)
 DEBUG = 0
-BATCH_SIZE = 48
+BATCH_SIZE = 256
 
 
 class PPO:
@@ -113,19 +113,19 @@ class PPO:
         # print(ratios)
         surr1 = ratios * advantages_sp
         surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages_sp
-        actor_loss = torch.min(surr1, surr2)
         
-        critic_loss = torch.square(state_values - rewards_sp)
+        actor_loss = torch.min(surr1, surr2).mean()
+        entropy_loss = dist_entropy.mean()        
+        critic_loss = 0.5*torch.square(state_values - rewards_sp).mean()
         
-        entropy_loss = dist_entropy
+
 
         loss_ac = -actor_loss - 0.01*entropy_loss
         
         loss_ac.mean().backward()
         # torch.nn.utils.clip_grad_norm_(self.policy.parameters(), max_norm=0.5)
         self.optimizer_ac.step()
-        loss_ct = 0.5*critic_loss
-        loss_ct.mean().backward()
+        critic_loss.mean().backward()
         self.optimizer_ct.step()
 
         self.critic_epoch_loss.append(critic_loss.mean().detach().cpu().numpy())
@@ -155,11 +155,10 @@ class PPO:
         old_sens = torch.tensor(memory.sens).detach().to(self.device, dtype=torch.float)
         old_conv = torch.tensor(memory.last_conv).detach().to(self.device, dtype=torch.float)
         state_values = torch.tensor(memory.state_value).detach().to(self.device, dtype=torch.float)
-        print(rewards.size(), state_values.size())
         advantages = rewards - state_values.detach()
 
         # print(advantages[-20:])
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8).detach()
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5).detach()
 
         # memory.clear_memory()
         # print(old_states.size(), old_actions.size(), state_values.size(), old_logprobs.size())
