@@ -61,20 +61,20 @@ A = np.array([[A_X,A_Y,A_Z]]).T
 ## REWARD PARAMETERS ##
 
 # CONTROL REWARD PENALITIES #
-P_C = 1
+P_C = 0.003
 P_C_D = 0
 
 ## TARGET STEADY STATE ERROR ##
-TR = [0.001, 0.01, 0.1]
-TR_P = [300, 100, 10]
+TR = [0.005, 0.01, 0.1]
+TR_P = [3, 2, 1]
 
 
 ## CHECKING IF THE ENV IS BEING CALLED FOR TRAINING OR EVALUATION
-if inspect.stack()[6][1] == '/home/rafael/mestrado/quadrotor_environment/environment/controller/ppo.py':
-    PPO_TRAINING = True
-else:
-    PPO_TRAINING = False
-    
+# if inspect.stack()[6][1] == '/home/rafael/mestrado/quadrotor_environment/environment/controller/ppo.py':
+#     PPO_TRAINING = True
+# else:
+#     PPO_TRAINING = False
+PPO_TRAINING = True
 class quad():
     def __init__(self, t_step, n, euler=0, direct_control=1, T=1):        
         """"
@@ -97,11 +97,10 @@ class quad():
         self.bb_cond = np.array([BB_VEL,
                                  BB_VEL,
                                  BB_VEL,
-                                 BB_ANG, BB_ANG, 4,
+                                 BB_ANG, BB_ANG, 3*np.pi,
                                  BB_VEL*3, BB_VEL*3, BB_VEL*3])       #Bounding Box Conditions Array
         if not PPO_TRAINING:
-            self.bb_cond = self.bb_cond*1000
-        
+            self.bb_cond = self.bb_cond*1
         #Quadrotor states dimension
         self.state_size = 13       
         
@@ -417,8 +416,6 @@ class quad():
         for x, c in zip(np.abs(cond_x), self.bb_cond):
             if  x >= c:
                 self.done = True
-        if self.i >= self.n:
-            self.done = True
             
     def reward_function(self, debug=0):
         
@@ -438,7 +435,7 @@ class quad():
         action = self.action
 
         
-        shaping = -100*(norm(velocity/BB_VEL)+
+        shaping = -1*(norm(velocity/BB_VEL)+
                         norm(psi/4)+
                         0.3*norm(euler_angles[0:2]/BB_ANG))
         
@@ -468,15 +465,16 @@ class quad():
         
         
         if current_state < target_state:
-            self.reward = +500
+            self.reward = +5
             self.solved = 1
             if PPO_TRAINING:
                 self.done = True              
         elif self.i >= self.n:
             self.reward = self.reward
-            self.solved = 0            
+            self.solved = 0   
+            self.done=True
         elif self.done:
-            self.reward = -200
+            self.reward = -2
             self.solved = 0            
          
     def control_effort(self):

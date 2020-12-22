@@ -9,21 +9,19 @@ import numpy as np
 import time
 
 from environment.quadrotor_env import quad, plotter
-from dl_auxiliary import dl_in_gen
-from model import ActorCritic
+from environment.controller.dl_auxiliary import dl_in_gen
+from environment.controller.model import ActorCritic
 
 """
 MECHANICAL ENGINEERING POST-GRADUATE PROGRAM
 UNIVERSIDADE FEDERAL DO ABC - SANTO ANDRÉ, BRASIL
-
 NOME: RAFAEL COSTA FERNANDES
 RA: 21201920754
 E−MAIL: COSTA.FERNANDES@UFABC.EDU.BR
-
 DESCRIPTION:
     PPO deep learning training algorithm. 
 """
-random_seed = 666
+random_seed = 12801
 seed = '_velocity_seed_'+str(random_seed)
 device = torch.device("cpu")
 torch.set_num_threads(16)
@@ -36,7 +34,7 @@ class Memory:
         self.logprobs = []
         self.rewards = []
         self.is_terminals = []
-    
+
     def clear_memory(self):
         del self.actions[:]
         del self.states[:]
@@ -84,26 +82,39 @@ class PPO:
         
         # Normalizing the rewards:
         rewards = torch.tensor(rewards, dtype=torch.float32).to(device)
-        rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
+        # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
         
         # convert list to tensor
         old_states = torch.squeeze(torch.stack(memory.states).to(device), 1).detach()
         old_actions = torch.squeeze(torch.stack(memory.actions).to(device), 1).detach()
         old_logprobs = torch.squeeze(torch.stack(memory.logprobs), 1).to(device).detach()
-               
+        old_values = self.policy.critic(old_states) 
+        advantages = rewards - old_values.detach()[0] 
+        advantages = (advantages - advantages.mean())/(advantages.std()+1e-5)
         # Optimize policy for K epochs:
         for _ in range(self.K_epochs):
             # Evaluating old actions and values :
-            logprobs, state_values, dist_entropy = self.policy.evaluate(old_states, old_actions)
+            rd_idx = torch.randperm(np.shape(old_states)[0])
+            old_states_sp = old_states[rd_idx]
+            old_actions_sp = old_actions[rd_idx]
+            old_logprobs_sp = old_logprobs[rd_idx]
+            advantages_sp = advantages[rd_idx]
+            rewards_sp = rewards[rd_idx]    
+                
+            logprobs, state_values, dist_entropy = self.policy.evaluate(old_states_sp, old_actions_sp)
             
             # Finding the ratio (pi_theta / pi_theta__old):
-            ratios = torch.exp(logprobs - old_logprobs.detach())
+            ratios = torch.exp(logprobs - old_logprobs_sp.detach())
 
             # Finding Surrogate Loss:
-            advantages = rewards - state_values.detach()   
-            surr1 = ratios * advantages
-            surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages
-            loss = -torch.min(surr1, surr2) + 0.5*self.MseLoss(state_values, rewards) - 0.01*dist_entropy
+
+            surr1 = ratios * advantages_sp
+            surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages_sp
+            critic_loss = 0.5*self.MseLoss(state_values, rewards_sp)
+            actor_loss = -torch.min(surr1, surr2).mean()
+            entropy_loss = - 0.01*dist_entropy.mean()
+            # print(critic_loss, actor_loss, entropy_loss)
+            loss = actor_loss + critic_loss + entropy_loss
             
             # take gradient step
             self.optimizer.zero_grad()
@@ -142,22 +153,24 @@ def evaluate(env, agent, plotter, eval_steps=10):
     
 ## HYPERPARAMETERS - CHANGE IF NECESSARY ##
 lr = 0.0001
-max_timesteps = 1000
-action_std = 0.05
-update_timestep = 4000
-K_epochs = 80
+max_timesteps = 400
+action_std = 0.15
+update_timestep = 10000
+K_epochs = 4
 T = 5
 
 
 ## HYPERPAREMETERS - PROBABLY NOT NECESSARY TO CHANGE ##
 action_dim = 4
 
-log_interval = 100
+log_interval = 5
+eval_episodes = 50
 max_episodes = 100000
+max_trainings = 400
 time_int_step = 0.01
 solved_reward = 700
 eps_clip = 0.2
-gamma = 0.99
+gamma = 0.99 
 betas = (0.9, 0.999)
 DEBUG = 0
 
@@ -184,8 +197,14 @@ running_reward = 0
 avg_length = 0
 time_step = 0
 solved_avg = 0
+training_count = 0
+log = False
 eval_on_mean = True
 
+file_logger = open('eval_reward_log'+seed+'.txt', 'a')
+file_logger.write('Gamma: ' + str(gamma)+'\t'+'Betas: ' + str(betas)+'\t'+'LR: '+str(lr)+'\t'+'Ep. Timstp: ' + str(max_timesteps)+'\t'+'Up. Timestep: ' + str(update_timestep)+'\t'+'Batch Epochs: ' + str(K_epochs)+'/t'+'Action Std: ' + str(action_std)+'\n')
+file_logger.close()
+        
 # auxiliar deep learning input generator
 aux_dl = dl_in_gen(T, env.state_size, env.action_size)  
 aux_dl.reset()
@@ -197,7 +216,7 @@ for i_episode in range(1, max_episodes+1):
     state, action = env.reset()
     
     #Prints the progress on console
-    print('\rProgress: '+str(int((i_episode-1)%log_interval/log_interval*100))+'% ',end='\r')
+    print('\rProgress: {:.2%}'.format(training_count/max_trainings),end='\r')
     
     for t in range(max_timesteps):        
         
@@ -217,10 +236,12 @@ for i_episode in range(1, max_episodes+1):
         memory.is_terminals.append(done)
 
         # update if its time
-        if time_step % update_timestep == 0:
+        if time_step > update_timestep and done:
             ppo.update(memory)
             memory.clear_memory()
             time_step = 0
+            training_count += 1
+            log = True
         running_reward += reward
         if done:  
             break
@@ -232,8 +253,9 @@ for i_episode in range(1, max_episodes+1):
         torch.save(ppo.policy_old.state_dict(), './PPO_continuous_old_{}.pth'.format('drone'+seed))
         
     # logging
-    if i_episode % log_interval == 0:
-        reward_avg, time_avg, solved_avg = evaluate(env, ppo, plot, 20)
+    if training_count % log_interval == 0 and log:
+        log = False
+        reward_avg, time_avg, solved_avg = evaluate(env, ppo, plot, eval_episodes)
         avg_length = int(avg_length/log_interval)
         running_reward = int((running_reward/log_interval))
         print('\rEpisode {} \t Avg length: {} \t Avg reward: {:.2f} \t Solved: {:.2f}'.format(i_episode, time_avg, reward_avg, solved_avg))
@@ -247,10 +269,10 @@ for i_episode in range(1, max_episodes+1):
         current_time = now.strftime("%H:%M:%S")
         
         file_logger = open('eval_reward_log'+seed+'.txt', 'a')
-        file_logger.write(d1+'\t'+current_time+'\t'+str(i_episode)+'\t'+str(time.time()-PROCESS_TIME)+'\t'+str(reward_avg)+'\t'+str(time_avg)+'\n')
+        file_logger.write(d1+'\t'+current_time+'\t'+str(training_count)+'\t'+str(i_episode)+'\t'+str(time.time()-PROCESS_TIME)+'\t'+str(reward_avg)+'\t'+str(time_avg)+'\n')
         file_logger.close()
         # stop training if avg_reward > solved_reward
-        if i_episode==2000:
+        if training_count >= max_trainings:
             # reward_avg, time_avg, solved_avg = evaluate(env, ppo, plot, 200)
             # print('\rRe-evaluation \t Avg length: {} \t Avg reward: {:.2f} \t Solved: {:.2f}'.format(time_avg, reward_avg, solved_avg))
             # if solved_avg > 0.95 and reward_avg>solved_reward:
