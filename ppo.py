@@ -21,7 +21,7 @@ E−MAIL: COSTA.FERNANDES@UFABC.EDU.BR
 DESCRIPTION:
     PPO deep learning training algorithm. 
 """
-random_seed = 12801
+random_seed = 1
 seed = '_velocity_seed_'+str(random_seed)
 device = torch.device("cpu")
 torch.set_num_threads(16)
@@ -34,6 +34,7 @@ class Memory:
         self.logprobs = []
         self.rewards = []
         self.is_terminals = []
+        self.values = []
 
     def clear_memory(self):
         del self.actions[:]
@@ -41,6 +42,7 @@ class Memory:
         del self.logprobs[:]
         del self.rewards[:]
         del self.is_terminals[:]
+        del self.values[:]
 
 class PPO:
     def __init__(self, state_dim, action_dim, action_std, lr, betas, gamma, K_epochs, eps_clip):
@@ -70,28 +72,52 @@ class PPO:
         state = torch.FloatTensor(state.reshape(1, -1)).to(device)
         return self.policy_old.act(state, memory).cpu().data.numpy().flatten()
     
+    
+    def get_advantages(self, values, masks, rewards):
+        returns = []
+        gae = 0
+        lmbda = 0.99
+        gmma = 0.99
+        for i in reversed(range(len(rewards))):
+            if i == len(rewards):
+                delta = rewards[i] - values[i]
+            else:
+                delta = rewards[i] + gmma * values[i + 1] * masks[i] - values[i]
+            gae = delta + gmma * lmbda * masks[i] * gae
+            returns.insert(0, gae + values[i])
+    
+        adv = np.array(returns) - values[:-1]
+        return returns, (adv - np.mean(adv)) / (np.std(adv) + 1e-10)
+
     def update(self, memory):
         # Monte Carlo estimate of rewards:
-        rewards = []
-        discounted_reward = 0
-        for reward, is_terminal in zip(reversed(memory.rewards), reversed(memory.is_terminals)):
-            if is_terminal:
-                discounted_reward = 0
-            discounted_reward = reward + (self.gamma * discounted_reward)
-            rewards.insert(0, discounted_reward)
+        # rewards = []
+        # discounted_reward = 0
+        # for reward, is_terminal in zip(reversed(memory.rewards), reversed(memory.is_terminals)):
+        #     if is_terminal:
+        #         discounted_reward = 0
+        #     discounted_reward = reward + (self.gamma * discounted_reward)
+        #     rewards.insert(0, discounted_reward)
         
         # Normalizing the rewards:
-        rewards = torch.tensor(rewards, dtype=torch.float32).to(device)
+        # rewards = torch.tensor(rewards, dtype=torch.float32).to(device)
         # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
         
         # convert list to tensor
         old_states = torch.squeeze(torch.stack(memory.states).to(device), 1).detach()
         old_actions = torch.squeeze(torch.stack(memory.actions).to(device), 1).detach()
         old_logprobs = torch.squeeze(torch.stack(memory.logprobs), 1).to(device).detach()
-        old_values = self.policy.critic(old_states) 
-        advantages = rewards - old_values.detach()[0] 
-        advantages = (advantages - advantages.mean())/(advantages.std()+1e-5)
+        old_values = np.array(memory.values)
+        rewards = np.array(memory.rewards)
+        # advantages = rewards - old_values.detach()[0] 
+        
+        rewards, advantages = self.get_advantages(old_values, np.logical_not(memory.is_terminals), rewards)
+        advantages = torch.Tensor(advantages).to(device)
+        rewards = torch.Tensor(rewards).to(device)
+        # advantages = (advantages - advantages.mean())/(advantages.std()+1e-5)
         # Optimize policy for K epochs:
+        # print(memory.rewards, rewards, memory.is_terminals)
+        # print(old_states, old_actions, old_logprobs, old_values, advantages)
         for _ in range(self.K_epochs):
             # Evaluating old actions and values :
             rd_idx = torch.randperm(np.shape(old_states)[0])
@@ -100,9 +126,11 @@ class PPO:
             old_logprobs_sp = old_logprobs[rd_idx]
             advantages_sp = advantages[rd_idx]
             rewards_sp = rewards[rd_idx]    
-                
+            
+            # print(rd_idx.shape, old_states_sp.shape, old_actions_sp.shape, old_logprobs_sp.shape, advantages_sp.shape, rewards_sp.shape)
             logprobs, state_values, dist_entropy = self.policy.evaluate(old_states_sp, old_actions_sp)
             
+            # advantages_sp = rewards_sp - state_values
             # Finding the ratio (pi_theta / pi_theta__old):
             ratios = torch.exp(logprobs - old_logprobs_sp.detach())
 
@@ -111,11 +139,10 @@ class PPO:
             surr1 = ratios * advantages_sp
             surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages_sp
             critic_loss = 0.5*self.MseLoss(state_values, rewards_sp)
-            actor_loss = -torch.min(surr1, surr2).mean()
-            entropy_loss = - 0.01*dist_entropy.mean()
+            actor_loss = -torch.min(surr1, surr2)
+            entropy_loss = - 0.01*dist_entropy
             # print(critic_loss, actor_loss, entropy_loss)
             loss = actor_loss + critic_loss + entropy_loss
-            
             # take gradient step
             self.optimizer.zero_grad()
             loss.mean().backward()
@@ -152,11 +179,11 @@ def evaluate(env, agent, plotter, eval_steps=10):
     return reward_mean, time_mean, solved_mean
     
 ## HYPERPARAMETERS - CHANGE IF NECESSARY ##
-lr = 0.0001
-max_timesteps = 400
-action_std = 0.15
-update_timestep = 10000
-K_epochs = 4
+lr = 0.0005
+max_timesteps = 1000
+action_std = 0.1
+update_timestep = 4000
+K_epochs = 20
 T = 5
 
 
@@ -166,7 +193,7 @@ action_dim = 4
 log_interval = 5
 eval_episodes = 50
 max_episodes = 100000
-max_trainings = 400
+max_trainings = 650
 time_int_step = 0.01
 solved_reward = 700
 eps_clip = 0.2
@@ -237,6 +264,7 @@ for i_episode in range(1, max_episodes+1):
 
         # update if its time
         if time_step > update_timestep and done:
+            memory.values.append(0)
             ppo.update(memory)
             memory.clear_memory()
             time_step = 0
@@ -245,6 +273,7 @@ for i_episode in range(1, max_episodes+1):
         running_reward += reward
         if done:  
             break
+        # print(time_step)
     avg_length += t
     
     # save every x episodes

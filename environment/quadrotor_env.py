@@ -444,7 +444,7 @@ class quad():
         for TR_i, TR_Pi in zip(TR, TR_P): 
             if norm(r_state) < norm(np.ones(len(r_state))*TR_i):
                 shaping += TR_Pi
-                if norm(euler_angles) < norm(np.ones(3)*TR_i*2):
+                if norm(euler_angles) < norm(np.ones(3)*TR_i*4):
                     shaping += TR_Pi
                 break
         
@@ -465,7 +465,7 @@ class quad():
         
         
         if current_state < target_state:
-            self.reward = +5
+            self.reward = +10
             self.solved = 1
             if PPO_TRAINING:
                 self.done = True              
