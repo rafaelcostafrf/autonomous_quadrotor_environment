@@ -19,8 +19,8 @@ DESCRIPTION:
 device = torch.device('cpu')
 class ActorCritic(nn.Module):
     def __init__(self, state_dim, action_dim, action_std):
-        h1=128
-        h2=128
+        h1=64*2
+        h2=64*2
         super(ActorCritic, self).__init__()
         # action mean range -1 to 1
         self.actor =  nn.Sequential(
@@ -47,7 +47,7 @@ class ActorCritic(nn.Module):
     def act(self, state, memory):
         action_mean = self.actor(state)
         cov_mat = torch.diag(self.action_var).to(device)
-        
+        value = self.critic(state)
         dist = MultivariateNormal(action_mean, cov_mat)
         action = dist.sample()
         action_logprob = dist.log_prob(action)
@@ -55,7 +55,7 @@ class ActorCritic(nn.Module):
         memory.states.append(state.detach())
         memory.actions.append(action.detach())
         memory.logprobs.append(action_logprob.detach())  
-        
+        memory.values.append(value.detach())
         return action.detach()
     
     def evaluate(self, state, action):   
@@ -102,6 +102,7 @@ class ActorCritic_old(nn.Module):
     
     def act(self, state, memory):
         action_mean = self.actor(state)
+
         cov_mat = torch.diag(self.action_var).to(device)
         
         dist = MultivariateNormal(action_mean, cov_mat)
@@ -111,6 +112,7 @@ class ActorCritic_old(nn.Module):
         memory.states.append(state.detach())
         memory.actions.append(action.detach())
         memory.logprobs.append(action_logprob.detach())  
+
         
         return action.detach()
     
