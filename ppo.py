@@ -179,11 +179,11 @@ def evaluate(env, agent, plotter, eval_steps=10):
     return reward_mean, time_mean, solved_mean
     
 ## HYPERPARAMETERS - CHANGE IF NECESSARY ##
-lr = 0.0005
+lr = 0.0001
 max_timesteps = 1000
-action_std = 0.1
+action_std = 0.05
 update_timestep = 4000
-K_epochs = 20
+K_epochs = 10
 T = 5
 
 

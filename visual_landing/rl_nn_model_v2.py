@@ -88,24 +88,24 @@ class conv3D_forward(nn.Module):
         self.fc_1 = nn.Linear(180*10**2, H0)
         
     def forward(self, x):
-        x = F.elu(self.conv_1(x))
+        x = torch.tanh(self.conv_1(x))
         x = torch.max_pool3d(x, (1,2,2))
         # if self.mother:
         #     plot_conv3D(x, 1)
 
-        x = F.elu(self.conv_2(x))
+        x = torch.tanh(self.conv_2(x))
         x = torch.max_pool3d(x, (1,2,2))
         # if self.mother:
         #     plot_conv3D(x, 2)
         
         x = torch.squeeze(x, dim=2)
-        x = F.elu(self.conv_3(x))
+        x = torch.tanh(self.conv_3(x))
         x = torch.max_pool2d(x, (2,2))
         # if self.mother:
         #     plot_conv3D(x, 3)
 
         # print(x.size())        
-        x = F.elu(self.fc_1(torch.flatten(x, start_dim=1)))
+        x = torch.tanh(self.fc_1(torch.flatten(x, start_dim=1)))
 
         return x
 
