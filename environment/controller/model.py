@@ -15,8 +15,8 @@ DESCRIPTION:
     hidden layers has 64 neurons
 """
 
-# device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
-device = torch.device('cpu')
+device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
+# device = torch.device('cuda')
 class ActorCritic(nn.Module):
     def __init__(self, state_dim, action_dim, action_std):
         h1=64*2
@@ -75,6 +75,7 @@ class ActorCritic(nn.Module):
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")    
 class ActorCritic_old(nn.Module):    
     def __init__(self, state_dim, action_dim, action_std):
+        self.device = torch.device('cuda')
         h1=64
         h2=64
         super(ActorCritic_old, self).__init__()
@@ -95,7 +96,7 @@ class ActorCritic_old(nn.Module):
                 nn.Tanh(),
                 nn.Linear(h2, 1)
                 ).to(device)
-        self.action_var = torch.full((action_dim,), action_std*action_std, dtype=torch.float).to(device)
+        self.action_var = torch.full((action_dim,), action_std*action_std, dtype=torch.float).to(self.device)
         
     def forward(self):
         raise NotImplementedError
@@ -103,7 +104,7 @@ class ActorCritic_old(nn.Module):
     def act(self, state, memory):
         action_mean = self.actor(state)
 
-        cov_mat = torch.diag(self.action_var).to(device)
+        cov_mat = torch.diag(self.action_var).to(self.device)
         
         dist = MultivariateNormal(action_mean, cov_mat)
         action = dist.sample()
@@ -120,7 +121,7 @@ class ActorCritic_old(nn.Module):
         action_mean = self.actor(state)
         
         action_var = self.action_var.expand_as(action_mean)
-        cov_mat = torch.diag_embed(action_var).to(device)
+        cov_mat = torch.diag_embed(action_var).to(self.device)
         
         dist = MultivariateNormal(action_mean, cov_mat)
         

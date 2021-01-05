@@ -34,7 +34,7 @@ def visual_reward(total_steps, marker_position, quad_position, quad_vel, control
 
     """
     done = False
-    error_p = 1
+    error_p = 5
     control_p = 0.05
     vel_p = 3
     reward = 0

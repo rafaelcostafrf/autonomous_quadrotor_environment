@@ -25,10 +25,10 @@ DESCRIPTION:
 
 
 ## HYPERPARAMETERS - CHANGE IF NECESSARY ##
-lr_ac = 0.0001
-lr_ct = 0.0001
+lr_ac = 0.0002
+lr_ct = 0.0002
 
-action_std = 0.15
+action_std = 0.1
 K_epochs = 4
 
 eps_clip = 0.2
@@ -130,24 +130,41 @@ class PPO:
 
         self.critic_epoch_loss.append(critic_loss.mean().detach().cpu().numpy())
         self.actor_epoch_loss.append(actor_loss.mean().detach().cpu().numpy())
-        
+    
+    def get_advantages(self, values, masks, rewards):
+        returns = []
+        gae = 0
+        lmbda = 0.99
+        gmma = 0.99
+        for i in reversed(range(len(rewards))):
+            if i == len(rewards):
+                delta = rewards[i] - values[i]
+            else:
+                delta = rewards[i] + gmma * values[i + 1] * masks[i] - values[i]
+            gae = delta + gmma * lmbda * masks[i] * gae
+            returns.insert(0, gae + values[i])
+    
+        adv = torch.tensor(returns).detach().to(self.device) - values[:-1].clone().detach()
+        returns = torch.tensor(returns).to(self.device)
+        return returns, (adv - adv.mean()) / (adv.std() + 1e-10)
+    
     def update(self, memory):
         # print('Out Step Training Memory: {:.2f}Mb'.format(process.memory_info().rss/1000000)) 
         # Monte Carlo estimate of rewards:
-        rewards = []
-        discounted_reward = 0
-        for reward, is_terminal in zip(reversed(memory.rewards), reversed(memory.is_terminals)):
-            if is_terminal:
-                discounted_reward = 0
-            discounted_reward = reward + (self.gamma * discounted_reward)
-            rewards.insert(0, discounted_reward)
+        # rewards = []
+        # discounted_reward = 0
+        # for reward, is_terminal in zip(reversed(memory.rewards), reversed(memory.is_terminals)):
+        #     if is_terminal:
+        #         discounted_reward = 0
+        #     discounted_reward = reward + (self.gamma * discounted_reward)
+        #     rewards.insert(0, discounted_reward)
 
-        # Normalizing the rewards:
-        rewards = torch.tensor(rewards, dtype=torch.float).to(self.device)
+        # # Normalizing the rewards:
+        # rewards = torch.tensor(rewards, dtype=torch.float).to(self.device)
         # self.running_stats(rewards)
         # rewards = (rewards - self.running_mean) / (self.running_std + 1e-5)
 
-        
+
         # convert list to tensor
         old_states = torch.tensor(memory.states).detach().to(self.device, dtype=torch.float)
         old_actions = torch.tensor(memory.actions).detach().to(self.device, dtype=torch.float)
@@ -155,10 +172,12 @@ class PPO:
         old_sens = torch.tensor(memory.sens).detach().to(self.device, dtype=torch.float)
         old_conv = torch.tensor(memory.last_conv).detach().to(self.device, dtype=torch.float)
         state_values = torch.tensor(memory.state_value).detach().to(self.device, dtype=torch.float)
-        advantages = rewards - state_values.detach()
+        state_values_ex = torch.cat((state_values, torch.tensor([0]).to(self.device)))
+        rewards, advantages = self.get_advantages(state_values_ex, np.logical_not(memory.is_terminals), torch.tensor(memory.rewards).to(self.device))
+        # advantages = rewards - state_values.detach()
 
         # print(advantages[-20:])
-        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5).detach()
+        # advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-5).detach()
 
         # memory.clear_memory()
         # print(old_states.size(), old_actions.size(), state_values.size(), old_logprobs.size())
