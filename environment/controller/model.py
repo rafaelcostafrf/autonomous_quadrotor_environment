@@ -21,6 +21,7 @@ class ActorCritic(nn.Module):
     def __init__(self, state_dim, action_dim, action_std):
         h1=64*2
         h2=64*2
+        print("Tamanho da Rede: {:d}".format(h1))
         super(ActorCritic, self).__init__()
         # action mean range -1 to 1
         self.actor =  nn.Sequential(
@@ -128,5 +129,5 @@ class ActorCritic_old(nn.Module):
         action_logprobs = dist.log_prob(action)
         dist_entropy = dist.entropy()
         state_value = self.critic(state)
-        
+        print(state_value.size())
         return action_logprobs, torch.squeeze(state_value), dist_entropy
