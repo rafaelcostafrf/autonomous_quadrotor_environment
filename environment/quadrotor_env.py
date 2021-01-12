@@ -3,6 +3,7 @@ import numpy as np
 from environment.quaternion_euler_utility import euler_quat, quat_euler, deriv_quat, quat_rot_mat
 from numpy.linalg import norm
 from mpl_toolkits.mplot3d import Axes3D
+import matplotlib
 from matplotlib import pyplot as plt
 from scipy.spatial.transform import Rotation
 import inspect
@@ -17,7 +18,13 @@ DEVELOPED BY:
 FURTHER DOCUMENTATION ON README.MD
 """""
 
-
+matplotlib.use("pgf")
+matplotlib.rcParams.update({
+    "pgf.texsystem": "lualatex",
+    'font.family': 'serif',
+    'text.usetex': True,
+    'pgf.rcfonts': False,
+})
 
 ## SIMULATION BOUNDING BOXES ##
 BB_POS = 5
@@ -73,8 +80,8 @@ TR_P = [3, 2, 1]
 # if inspect.stack()[6][1] == '/home/rafael/mestrado/quadrotor_environment/environment/controller/ppo.py':
 #     PPO_TRAINING = True
 # else:
-#     PPO_TRAINING = False
-PPO_TRAINING = True
+PPO_TRAINING = False
+# PPO_TRAINING = True
 class quad():
     def __init__(self, t_step, n, euler=0, direct_control=1, T=1):        
         """"
@@ -97,8 +104,8 @@ class quad():
         self.bb_cond = np.array([BB_VEL,
                                  BB_VEL,
                                  BB_VEL,
-                                 BB_ANG, BB_ANG, 3*np.pi,
-                                 BB_VEL*3, BB_VEL*3, BB_VEL*3])       #Bounding Box Conditions Array
+                                 BB_ANG, BB_ANG, 3/4*np.pi,
+                                 BB_VEL*2, BB_VEL*2, BB_VEL*2])       #Bounding Box Conditions Array
         if not PPO_TRAINING:
             self.bb_cond = self.bb_cond*1
         #Quadrotor states dimension
@@ -643,44 +650,62 @@ class plotter():
         self.env = env
         self.states = []
         self.times = []
-        self.print_list = range(10)
+        self.print_list = range(13)
         if velocity_plot:
-            self.plot_labels = ['v_x', 'v_y', 'v_z',
-                                'phi', 'theta', 'psi', 
-                                'u_1', 'u_2', 'u_3', 'u_4']
+            self.plot_labels = ['$v_x$', '$v_y$', '$v_z$',
+                                '', '', '',
+                                '$\phi$', '$\\theta$', '$\psi$', 
+                                '$u_1$', '$u_2$', '$u_3$', '$u_4$']
+            self.axis_labels = ['velocidade (ms)', 'velocidade (ms)', 'velocidade (ms)',
+                                'velocidade (ms)', 'velocidade (ms)', 'velocidade (ms)',
+                                'atitude (rad)', 'atitude (rad)', 'atitude (rad)', 
+                                '\%E', '\%E', '\%E', '\%E']
             self.depth_plot = False
         else:
             self.plot_labels = ['x', 'y', 'z',
-                                'phi', 'theta', 'psi', 
-                                'u_1', 'u_2', 'u_3', 'u_4']
+                                '$\phi$', '$\theta$', '$\psi$', 
+                                '$u_1$', '$u_2$', '$u_3$', '$u_4$']
             
         self.line_styles = ['-', '-', '-',
+                            '--', '--', '--',
                             '--', '--', '--', 
                             ':', ':', ':', ':']
-        
+        self.color = ['r', 'g', 'b',
+                      'r', 'g', 'b',
+                      'r', 'g', 'b',
+                      'r', 'g', 'b', 'c']
+        self.plot_place = [0, 0, 0,
+                           0, 0, 0,
+                           1, 1, 1,
+                           2, 2, 2, 2]
         self.velocity_plot = velocity_plot
         
-    def add(self):
+    def add(self, target):
         if self.velocity_plot:
-            state = np.concatenate((self.env.state[1:6:2].flatten(), self.env.ang.flatten(), self.env.clipped_action.flatten()))
+            state = np.concatenate((self.env.state[1:6:2].flatten(), target[1:6:2], self.env.ang.flatten(), self.env.clipped_action.flatten()))
         else:
             state = np.concatenate((self.env.state[0:5:2].flatten(), self.env.ang.flatten(), self.env.clipped_action.flatten()))
         self.states.append(state)
         self.times.append(self.env.i*self.env.t_step)
+
         
     def clear(self,):
         self.states = []
         self.times = []
         
-    def plot(self):
-        plt.figure('States')
+    def plot(self, nome):
+        P = 0.7
+        fig, axs = plt.subplots(3, figsize=(P*21*0.3937,P*29.7*0.3937))
         self.states = np.array(self.states)
         self.times = np.array(self.times)
-        for print_state, label, line_style in zip(self.print_list, self.plot_labels, self.line_styles):
-            plt.plot(self.times, self.states[:,print_state], label = label, ls=line_style, lw=1)
-        plt.legend()
-        plt.grid(True)
-        plt.show()
+        for print_state, label, line_style, axis_place, color, name in zip(self.print_list, self.plot_labels, self.line_styles, self.plot_place, self.color, self.axis_labels):
+            axs[axis_place].plot(self.times, self.states[:,print_state], label = label, ls=line_style, lw=0.8, color = color)
+            axs[axis_place].legend()
+            axs[axis_place].grid(True)
+            axs[axis_place].set(ylabel=name)
+        plt.xlabel('tempo (s)')
+        plt.savefig(nome+'.pgf')
+        # plt.show()
         if self.depth_plot:
             fig3d = plt.figure('3D map')
             ax = Axes3D(fig3d)
@@ -699,5 +724,6 @@ class plotter():
             ax.set_ylim(-BB_POS, BB_POS)
             ax.set_zlim(-BB_POS, BB_POS)
             plt.grid(True)
-            plt.show()
+            # plt.show()
+            
         self.clear()
