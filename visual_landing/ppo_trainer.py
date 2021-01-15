@@ -35,7 +35,7 @@ eps_clip = 0.2
 gamma = 0.99
 betas = (0.9, 0.999)
 DEBUG = 0
-BATCH_SIZE = 256
+BATCH_SIZE = 128
 
 
 class PPO:
@@ -108,14 +108,13 @@ class PPO:
         # print(old_states_sp.size(), old_actions_sp.size(), old_logprobs_sp.size(), old_sens_sp.size(), old_conv_sp.size(), rewards_sp.size(), advantages_sp.size())
         logprobs, state_values, dist_entropy = self.policy.evaluate(old_states_sp, old_sens_sp, old_actions_sp, old_conv_sp)
 
-        
-        ratios = (logprobs-old_logprobs_sp).exp()
-        # print(ratios)
-        surr1 = ratios * advantages_sp
-        surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages_sp
-        
+
+        ratios = (logprobs-old_logprobs_sp.flatten()).exp()
+        surr1 = ratios * advantages_sp.flatten()
+        surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages_sp.flatten()
         actor_loss = torch.min(surr1, surr2).mean()
-        entropy_loss = dist_entropy.mean()        
+        entropy_loss = dist_entropy.mean()   
+
         critic_loss = 0.5*torch.square(state_values - rewards_sp).mean()
         
 

@@ -693,7 +693,7 @@ class plotter():
         self.states = []
         self.times = []
         
-    def plot(self, nome):
+    def plot(self, nome='padrao'):
         P = 0.7
         fig, axs = plt.subplots(3, figsize=(P*21*0.3937,P*29.7*0.3937))
         self.states = np.array(self.states)
@@ -704,8 +704,8 @@ class plotter():
             axs[axis_place].grid(True)
             axs[axis_place].set(ylabel=name)
         plt.xlabel('tempo (s)')
-        plt.savefig(nome+'.pgf')
-        # plt.show()
+        # plt.savefig(nome+'.pgf')
+        plt.show()
         if self.depth_plot:
             fig3d = plt.figure('3D map')
             ax = Axes3D(fig3d)
