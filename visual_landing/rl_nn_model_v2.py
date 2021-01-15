@@ -181,8 +181,7 @@ class ActorCritic(nn.Module):
         self.critic_nn = critic_nn(T, child).to(self.device)
         
         self.action_var = torch.full((action_dim,), action_std*action_std, device = self.device, dtype=torch.float)
-        self.action_log_std = torch.full((1, action_dim), action_std, device=self.device)
-    
+        
     def __get_dist(self, action_mean):
         action_log_std = self.action_log_std.expand_as(action_mean).to(self.device)
         return torch.distributions.Normal(action_mean, action_log_std)
@@ -202,14 +201,14 @@ class ActorCritic(nn.Module):
 
         action_mean = self.forward(state, sens)
 
-    
-        dist = self.__get_dist(action_mean)
+        cov_mat = torch.diag(self.action_var).to(self.device)
+
+        dist = MultivariateNormal(action_mean, cov_mat)
         action = dist.sample()
-        
+        action_logprob = dist.log_prob(action)
+
         state_value = self.critic(state, sens, action)
         
-        
-        action_logprob = dist.log_prob(action)
         memory.append_memory_as(action.detach().cpu().numpy(), state.detach().cpu().numpy(), action_logprob.detach().cpu().numpy(), sens.detach().cpu().numpy(), state_value.detach().cpu().numpy())
             
         action = action.detach().cpu().numpy().flatten()       
@@ -219,9 +218,13 @@ class ActorCritic(nn.Module):
     def evaluate(self, state, sens, action, last_conv):   
         action_mean = self.forward(state, sens)
 
-        dist = self.__get_dist(action_mean)
+        action_var = self.action_var.expand_as(action_mean)
+        cov_mat = torch.diag_embed(action_var).to(self.device)
+        
+        dist = MultivariateNormal(action_mean, cov_mat)
         
         action_logprobs = dist.log_prob(action)
         dist_entropy = dist.entropy()
+        
         state_value = self.critic(state, sens, action)
         return action_logprobs, torch.squeeze(state_value), dist_entropy

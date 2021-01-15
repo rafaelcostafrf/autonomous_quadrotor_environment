@@ -21,7 +21,7 @@ E−MAIL: COSTA.FERNANDES@UFABC.EDU.BR
 DESCRIPTION:
     PPO deep learning training algorithm. 
 """
-random_seed = 257
+random_seed = 129
 seed = '_velocity_seed_'+str(random_seed)
 # device = torch.device("cpu")
 device = torch.device("cuda:0")
@@ -126,7 +126,7 @@ class PPO:
             old_states_sp = old_states[rd_idx]
             old_actions_sp = old_actions[rd_idx]
             old_logprobs_sp = old_logprobs[rd_idx]
-            advantages_sp = advantages[rd_idx]
+            advantages_sp = advantages[rd_idx].flatten()
             rewards_sp = rewards[rd_idx]    
             
             # print(rd_idx.shape, old_states_sp.shape, old_actions_sp.shape, old_logprobs_sp.shape, advantages_sp.shape, rewards_sp.shape)
@@ -137,12 +137,13 @@ class PPO:
             ratios = torch.exp(logprobs - old_logprobs_sp.detach())
 
             # Finding Surrogate Loss:
-
+            # print(ratios.size(), logprobs.size(), old_logprobs_sp.size(), advantages_sp.size(), state_values.size(), rewards_sp.size())
             surr1 = ratios * advantages_sp
             surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages_sp
             critic_loss = 0.5*self.MseLoss(state_values, rewards_sp)
             actor_loss = -torch.min(surr1, surr2)
             entropy_loss = - 0.01*dist_entropy
+
             # print(critic_loss, actor_loss, entropy_loss)
             loss = actor_loss + critic_loss + entropy_loss
             # take gradient step
@@ -170,7 +171,7 @@ def evaluate(env, agent, plotter, eval_steps=10):
             action = np.array([action])
             rewards += reward
             if i == eval_steps-1:
-                plotter.add()
+                plotter.add(np.zeros(14))
             if done:
                 n_solved += env.solved
                 break
@@ -195,7 +196,7 @@ action_dim = 4
 log_interval = 5
 eval_episodes = 50
 max_episodes = 100000
-max_trainings = 10
+max_trainings = 2000
 time_int_step = 0.01
 solved_reward = 700
 eps_clip = 0.2
