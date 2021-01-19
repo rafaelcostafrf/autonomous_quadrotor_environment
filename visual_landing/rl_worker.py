@@ -23,7 +23,7 @@ from visual_landing.memory_leak import debug_gpu
 import matplotlib.pyplot as plt
 
 T = 5
-T_visual_time = [2, 1, 0]
+T_visual_time = [6, 5, 2, 1, 0]
 T_visual = len(T_visual_time)
 T_total = T_visual_time[0]+1
 EVAL_FREQUENCY = 10
@@ -38,7 +38,7 @@ IMAGE_TIME = T_visual
 
 
 TASK_INTERVAL_STEPS = 10
-BATCH_SIZE = 256
+BATCH_SIZE = 256*4
 VELOCITY_SCALE = [0.5, 0.5, 1]
 VELOCITY_D = [0, 0, -VELOCITY_SCALE[2]/1.5]
 #CONTROL POLICY

@@ -20,10 +20,10 @@ DESCRIPTION:
     PPO neural network model
     hidden layers has 64 neurons
 """
-H0 = 256
-H1 = 256
-H11 = 128
-H2 = 256
+H0 = 2**10
+H1 = 2**10
+H11 = 2**8
+H2 = 2**9
 SENS_SIZE = 75
 class Flatten(nn.Module):
     def forward(self, input):
@@ -52,21 +52,21 @@ class conv_forward(nn.Module):
         self.conv_2 = nn.Conv2d(in_channels = 50, out_channels = 100, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
         self.conv_3 = nn.Conv2d(in_channels = 100, out_channels = 150, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
         # self.conv_4 = nn.Conv2d(in_channels = 256, out_channels = 128, kernel_size=(2,2), stride=(1,1), padding=(1, 1))
-        self.fc_1 = nn.Linear(150*256, H0)
+        self.fc_1 = nn.Linear(150*10**2, H0)
         
     def forward(self, x):
-
-        x = F.elu(self.conv_1(x))
-        x = torch.max_pool2d(x, 2)
+        x = x[:,:,0,:,:]
+        x = torch.tanh(self.conv_1(x))
+        x = torch.nn.functional.avg_pool2d(x, 2)
         # plot_conv(x, 1)
 
-        x = F.elu(self.conv_2(x))
-        x = torch.max_pool2d(x, 2)
+        x = torch.tanh(self.conv_2(x))
+        x = torch.nn.functional.avg_pool2d(x, 2)
         # plot_conv(x, 2)
         
 
-        x = F.elu(self.conv_3(x))
-        x = torch.max_pool2d(x, 2)
+        x = torch.tanh(self.conv_3(x))
+        x = torch.nn.functional.avg_pool2d(x, 2)
         # if not self.child:
         #     plot_conv(x, 3)
         
@@ -74,7 +74,7 @@ class conv_forward(nn.Module):
         # x = torch.max_pool2d(x, 2)
         # plot_conv(x, 4)
         # print(x.size())
-        x = F.elu(self.fc_1(torch.flatten(x, start_dim=1)))
+        x = self.fc_1(torch.flatten(x, start_dim=1))
 
         return x
 
@@ -85,22 +85,22 @@ class conv3D_forward(nn.Module):
         self.conv_1 = nn.Conv3d(in_channels = 3, out_channels = 60, kernel_size=(2,3,3), stride=(1,1,1), padding=(0, 1, 1))
         self.conv_2 = nn.Conv3d(in_channels = 60, out_channels = 120, kernel_size=(2,3,3), stride=(1,1,1), padding=(0, 1, 1))
         self.conv_3 = nn.Conv2d(in_channels = 120, out_channels = 180, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
-        self.fc_1 = nn.Linear(180*10**2, H0)
+        self.fc_1 = nn.Linear(120*8**2, H0)
         
     def forward(self, x):
         x = torch.tanh(self.conv_1(x))
-        x = torch.max_pool3d(x, (1,2,2))
+        x = torch.nn.functional.avg_pool3d(x, (1,3,3))
         # if self.mother:
         #     plot_conv3D(x, 1)
 
         x = torch.tanh(self.conv_2(x))
-        x = torch.max_pool3d(x, (1,2,2))
+        x = torch.nn.functional.avg_pool3d(x, (2,3,3))
         # if self.mother:
         #     plot_conv3D(x, 2)
         
-        x = torch.squeeze(x, dim=2)
-        x = torch.tanh(self.conv_3(x))
-        x = torch.max_pool2d(x, (2,2))
+        # x = torch.squeeze(x, dim=2)
+        # x = torch.tanh(self.conv_3(x))
+        # x = torch.nn.functional.avg_pool2d(x, (2,2))
         # if self.mother:
         #     plot_conv3D(x, 3)
 
@@ -120,20 +120,15 @@ class actor_nn(nn.Module):
         self.fc_3 = nn.Linear(H2, 3)
         
     def forward(self, image, sens):
-        # print('Actor')
+
         x = self.conv_ac(image)
-        # x_2 = self.conv_ac(image[:,1,:,:,:])
-        # x_3 = self.conv_ac(image[:,2,:,:,:])
-        # x_4 = self.conv_ac(image[:,3,:,:,:])
-        # x = torch.cat((x_1, x_2, x_3, x_4), dim=1)
-        # x = torch.cat((x_1, x_2), dim=1)
-        # x = self.conv_ac(image)
+
         x = torch.cat((x, sens), dim=1)
         x = torch.tanh(self.fc_1(x))
         x = torch.tanh(self.fc_2(x))        
-        # x = F.elu(self.fc_21(x))        
+   
         x = torch.tanh(self.fc_3(x))
-        # print(x)
+
         return x
     
 class critic_nn(nn.Module):
@@ -150,6 +145,8 @@ class critic_nn(nn.Module):
     def forward(self, image, sens, action):
         # print('Critic')
         # print(x)
+        # print(image.size())
+
         x = self.conv_ct(image)
         # x_1 = self.conv_ct(image[:,0,:,:,:])
         # x_2 = self.conv_ct(image[:,1,:,:,:])
