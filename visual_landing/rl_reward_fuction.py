@@ -34,9 +34,8 @@ def visual_reward(total_steps, marker_position, quad_position, quad_vel, control
 
     """
     done = False
-    error_p = 5
-    control_p = 0.05
-    vel_p = 3
+    error_p = 3
+    control_p = 0.4
     reward = 0
     cascading_error = [0.3, 1, 2, 5]
     cascading_rew = [4, 3, 2, 1]
@@ -76,21 +75,21 @@ def visual_reward(total_steps, marker_position, quad_position, quad_vel, control
         if soft_landed:
             if flat_landed:
                 if on_target:
-                    reward = 5
+                    reward = 50
                     print('SOLVED!')
                 else:
-                    reward = 1
+                    reward = 10
             else:
                 # print(ang[0:2])
                 reward = 0
         else:
-            reward = -1
+            reward = -10
         done = True
     elif astray:
-        reward = -2
+        reward = -50
         done = True
     if max_steps:
-        reward = -2
+        reward = -20
         done = True
 
     

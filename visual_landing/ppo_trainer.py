@@ -25,13 +25,13 @@ DESCRIPTION:
 
 
 ## HYPERPARAMETERS - CHANGE IF NECESSARY ##
-lr_ac = 0.0002
-lr_ct = 0.0002
+lr_ac = 0.00005
+lr_ct = 0.00005
 
 action_std = 0.1
-K_epochs = 4
+K_epochs = 3
 
-eps_clip = 0.2
+eps_clip = 0.1
 gamma = 0.99
 betas = (0.9, 0.999)
 DEBUG = 0
@@ -112,13 +112,11 @@ class PPO:
         ratios = (logprobs-old_logprobs_sp.flatten()).exp()
         surr1 = ratios * advantages_sp.flatten()
         surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages_sp.flatten()
-        actor_loss = torch.min(surr1, surr2).mean()
-        entropy_loss = dist_entropy.mean()   
-
-        critic_loss = 0.5*torch.square(state_values - rewards_sp).mean()
-        
-
-
+        actor_loss = torch.min(surr1, surr2)
+        entropy_loss = dist_entropy 
+        # print(state_values, rewards_sp)
+        critic_loss = 0.5*self.MseLoss(state_values, rewards_sp)
+        # print(actor_loss, entropy_loss)
         loss_ac = -actor_loss - 0.01*entropy_loss
         
         loss_ac.mean().backward()
@@ -144,7 +142,7 @@ class PPO:
             returns.insert(0, gae + values[i])
     
         adv = torch.tensor(returns).detach().to(self.device) - values[:-1].clone().detach()
-        returns = torch.tensor(returns).to(self.device)
+        returns = torch.tensor(returns).to(self.device, dtype=torch.float)
         return returns, (adv - adv.mean()) / (adv.std() + 1e-10)
     
     def update(self, memory):
