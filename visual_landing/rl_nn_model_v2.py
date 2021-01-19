@@ -48,33 +48,35 @@ class conv_forward(nn.Module):
         self.child = child
         super(conv_forward, self).__init__()
         
-        self.conv_1 = nn.Conv2d(in_channels = 3, out_channels = 50, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
-        self.conv_2 = nn.Conv2d(in_channels = 50, out_channels = 100, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
-        self.conv_3 = nn.Conv2d(in_channels = 100, out_channels = 150, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
-        # self.conv_4 = nn.Conv2d(in_channels = 256, out_channels = 128, kernel_size=(2,2), stride=(1,1), padding=(1, 1))
-        self.fc_1 = nn.Linear(150*10**2, H0)
+        self.conv_1 = nn.Conv2d(in_channels = 3, out_channels = 32, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
+        self.conv_2 = nn.Conv2d(in_channels = 32, out_channels = 128, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
+        self.conv_3 = nn.Conv2d(in_channels = 128, out_channels = 256, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
+        self.conv_4 = nn.Conv2d(in_channels = 256, out_channels = 128, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
+        self.fc_1 = nn.Linear(128*10**2, H0)
         
     def forward(self, x):
-        x = x[:,:,0,:,:]
-        x = torch.tanh(self.conv_1(x))
-        x = torch.nn.functional.avg_pool2d(x, 2)
+
+        # plot_conv(x, 0)
+        x = F.relu(self.conv_1(x))
+        x = torch.max_pool2d(x, 2)
         # plot_conv(x, 1)
 
-        x = torch.tanh(self.conv_2(x))
-        x = torch.nn.functional.avg_pool2d(x, 2)
+        x = F.relu(self.conv_2(x))
+        x = torch.max_pool2d(x, 2)
         # plot_conv(x, 2)
         
 
-        x = torch.tanh(self.conv_3(x))
-        x = torch.nn.functional.avg_pool2d(x, 2)
+        x = F.relu(self.conv_3(x))
+        x = torch.max_pool2d(x, 2)
         # if not self.child:
         #     plot_conv(x, 3)
         
-        # x = torch.tanh(self.conv_4(x))
+        x = F.relu(self.conv_4(x))
         # x = torch.max_pool2d(x, 2)
         # plot_conv(x, 4)
+        
         # print(x.size())
-        x = self.fc_1(torch.flatten(x, start_dim=1))
+        x = F.relu(self.fc_1(torch.flatten(x, start_dim=1)))
 
         return x
 
@@ -113,7 +115,8 @@ class conv3D_forward(nn.Module):
 class actor_nn(nn.Module):
     def __init__(self, T, child=False):
         super(actor_nn, self).__init__()  
-        self.conv_ac = conv3D_forward(T, child)
+        self.conv_ac = conv_forward(T, child)
+        
         self.fc_1 = nn.Linear(H0+SENS_SIZE, H1)                
         self.fc_2 = nn.Linear(H1, H2)
         self.fc_21 = nn.Linear(H2, H2)
@@ -135,11 +138,11 @@ class critic_nn(nn.Module):
     def __init__(self, T, child=False):
         super(critic_nn, self).__init__() 
         
-        self.conv_ct = conv3D_forward(T, child)
+        self.conv_ct = conv_forward(T, child)
         
         self.fc_1 = nn.Linear(H0+SENS_SIZE+3, H1)                
         self.fc_2 = nn.Linear(H1, H2)
-        # self.fc_21 = nn.Linear(H2, H2)
+        self.fc_21 = nn.Linear(H2, H2)
         self.fc_3 = nn.Linear(H2, 1)
         
     def forward(self, image, sens, action):

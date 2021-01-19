@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
 import sys
-sys.path.append('/home/rafael/mestrado/quadrotor_environment/')
+import os
+os.chdir('/home/rafaelcostaf/mestrado/quadrotor_environment/')
+# sys.path.append()
 from environment.quadrotor_env import quad, plotter
 from environment.quaternion_euler_utility import euler_quat, quat_euler
 from environment.controller.response_analyzer import response_analyzer
@@ -214,11 +216,7 @@ class pid():
         return control
 
 
-
-
-
-
-    
+ 
 drone = quad(0.01, 5000, 5, direct_control=0)
 mission_control = mission(drone.t_step)
 indexes = ['CE', 'EOT',
@@ -255,7 +253,8 @@ for j in range(episode_n()):
     controller = pid_control(drone)
     plot = plotter(drone, False)
     error_sum = 0
-    while True:
+    j = 0
+    while True and j < 5000:
         error_mission = mission_control.get_error(drone.i*drone.t_step)
         
         xd = error_mission[0:5:2]
@@ -270,7 +269,8 @@ for j in range(episode_n()):
         action = controller.control(xd, dxd, psi_d, 0)       
         _, _, done = drone.step(action)
         controller.data_logger()
-    
+        j += 1
+        print(j)
         if done:
             break
         

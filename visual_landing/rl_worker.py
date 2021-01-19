@@ -17,24 +17,34 @@ from environment.controller.dl_auxiliary import dl_in_gen
 from collections import deque
 
 from visual_landing.ppo_trainer import PPO
-from visual_landing.rl_memory import Memory
+from visual_landing.rl_memory import Memory, Memory_2D
 from visual_landing.rl_reward_fuction import visual_reward
 from visual_landing.memory_leak import debug_gpu
 import matplotlib.pyplot as plt
 
 T = 5
-T_visual_time = [6, 5, 2, 1, 0]
-T_visual = len(T_visual_time)
-T_total = T_visual_time[0]+1
+
+conv_3D = False
+# conv_3D = True
+if conv_3D:
+    T_visual_time = [6, 5, 2, 1, 0]
+    T_visual = len(T_visual_time)
+    T_total = T_visual_time[0]+1
+else:
+    T_visual_time = 0
+    T_visual = 1
+    T_total = 1
+IMAGE_LEN = np.array([80, 80])
+IMAGE_CHANNELS = 3
+IMAGE_TIME = T_visual
+
 EVAL_FREQUENCY = 10
 EVAL_EPISODES = 20
 
 TIME_STEP = 0.01
 TOTAL_STEPS = 1500
 
-IMAGE_LEN = np.array([80, 80])
-IMAGE_CHANNELS = 3
-IMAGE_TIME = T_visual
+
 
 
 TASK_INTERVAL_STEPS = 10
@@ -87,8 +97,11 @@ class quad_worker():
         self.sensor.reset()
         self.aux_dl =  dl_in_gen(T, 13, 4)
         self.control_network_in = self.aux_dl.dl_input(states, action)
-        self.image_zeros() 
-        self.memory = Memory(self.batch_size, IMAGE_LEN, IMAGE_TIME, IMAGE_CHANNELS)
+        self.image_zeros()
+        if conv_3D:
+            self.memory = Memory(self.batch_size, IMAGE_LEN, IMAGE_TIME, IMAGE_CHANNELS)
+        else:
+            self.memory = Memory_2D(self.batch_size, IMAGE_LEN, IMAGE_CHANNELS)
         
         #TASK MANAGING
         self.wait_for_task = False
@@ -161,7 +174,10 @@ class quad_worker():
             return states_sens
             
     def image_zeros(self):
-        self.images = np.zeros([T_visual_time[0]+1, IMAGE_CHANNELS, IMAGE_LEN[0], IMAGE_LEN[0]])
+        if conv_3D:
+            self.images = np.zeros([T_visual_time[0]+1, IMAGE_CHANNELS, IMAGE_LEN[0], IMAGE_LEN[0]])
+        else:
+            self.images = np.zeros([IMAGE_CHANNELS, IMAGE_LEN[0], IMAGE_LEN[0]])
      
     def normalize_hsv(self, image):
         image[0] = image[0]/90-1
@@ -173,16 +189,21 @@ class quad_worker():
 
         image_copy = (image[:, :, 0:3]).copy()
         # image_copy = image_.copy()
-        self.print_image = cv.cvtColor(image_copy, cv.COLOR_HSV2BGR)
+        self.print_image = image_copy
         
         image_copy = np.swapaxes(image_copy, 2, 0)
         image_copy = np.swapaxes(image_copy, 1, 2)
 
         
-        image_copy = self.normalize_hsv(image_copy)
+        # image_copy = self.normalize_hsv(image_copy)
+        image_copy = image_copy/255.0
         
         self.images = np.roll(self.images, 1, 0)
-        self.images[0, :, :, :] = image_copy  
+        if conv_3D:
+            self.images[0, :, :, :] = image_copy  
+        else:
+            self.images = image_copy
+            # print(np.shape(self.images))
         
     def image_plot(self):
         total = self.print_image
@@ -196,7 +217,8 @@ class quad_worker():
         ret, image = self.cv_cam.get_image() 
         if ret:
             # out =  cv.cvtColor(image, cv.COLOR_BGR2GRAY)/255.0
-             out =  cv.cvtColor(image, cv.COLOR_BGR2HSV)
+              # out =  cv.cvtColor(image, cv.COLOR_BGR2HSV)
+              out = image
         else:
             out = np.zeros([IMAGE_LEN, IMAGE_LEN, 4])
         return out
@@ -344,10 +366,17 @@ class quad_worker():
     def step(self, task):
         visual_action = np.zeros(3)
         if self.ppo_calls >=1:
-            image_in = self.images[T_visual_time]
+            if conv_3D:
+                image_in = self.images[T_visual_time]
+            else:
+                image_in = self.images
             self.image_plot()
-            if self.eval_flag:                
-                network_in = torch.Tensor(np.swapaxes(image_in,1,0)).to(self.device).detach()    
+            if self.eval_flag:  
+                if conv_3D:
+                    network_in = torch.Tensor(np.swapaxes(image_in,1,0)).to(self.device).detach()    
+                else:
+                    network_in = torch.Tensor(image_in).to(self.device).detach()    
+                # network_in = torch.Tensor(np.swapaxes(image_in,1,0)).to(self.device).detach()    
                 # network_in = torch.tensor(image_in, dtype=torch.float).to(self.device).detach()    
                 control_in = torch.tensor([self.control_network_in], dtype=torch.float).to(self.device).detach()
                 network_in = torch.unsqueeze(network_in, 0)
@@ -355,7 +384,10 @@ class quad_worker():
                 visual_action = visual_action.detach().cpu().numpy().flatten()
     
             else:
-                network_in = np.swapaxes(image_in,1,0)
+                if conv_3D:
+                    network_in = np.swapaxes(image_in, 1, 0)  
+                else:
+                    network_in = image_in
                 # network_in = image_in
                 training_percentage = ((self.train_calls%EVAL_FREQUENCY*self.batch_size)+self.memory.index)/(self.batch_size*EVAL_FREQUENCY)
                 print('\rTraining Progress: {:.2%}'.format(training_percentage), end='\t')    

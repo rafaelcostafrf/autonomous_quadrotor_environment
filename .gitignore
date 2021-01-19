@@ -1,1 +1,4 @@
 child_data/
+PPO_landing_old.pth
+PPO_landing.pth
+*.pth

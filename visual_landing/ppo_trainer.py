@@ -25,17 +25,17 @@ DESCRIPTION:
 
 
 ## HYPERPARAMETERS - CHANGE IF NECESSARY ##
-lr_ac = 0.00005
-lr_ct = 0.00005
+lr_ac = 0.0001
+lr_ct = 0.0001
 
-action_std = 0.1
-K_epochs = 3
+action_std = 0.15
+K_epochs = 8
 
 eps_clip = 0.1
 gamma = 0.99
 betas = (0.9, 0.999)
 DEBUG = 0
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 
 
 class PPO:
