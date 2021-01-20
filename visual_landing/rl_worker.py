@@ -34,7 +34,7 @@ else:
     T_visual_time = 0
     T_visual = 1
     T_total = 1
-IMAGE_LEN = np.array([80, 80])
+IMAGE_LEN = np.array([84, 84])
 IMAGE_CHANNELS = 3
 IMAGE_TIME = T_visual
 
@@ -48,19 +48,19 @@ TOTAL_STEPS = 1500
 
 
 TASK_INTERVAL_STEPS = 10
-BATCH_SIZE = 256*4
+BATCH_SIZE = 256*1
 VELOCITY_SCALE = [0.5, 0.5, 1]
 VELOCITY_D = [0, 0, -VELOCITY_SCALE[2]/1.5]
 #CONTROL POLICY
 AUX_DL = dl_in_gen(T, 13, 4)
 state_dim = AUX_DL.deep_learning_in_size
 CRTL_POLICY = ActorCritic_old(state_dim, action_dim=4, action_std=0)
-# try:
-CRTL_POLICY.load_state_dict(torch.load('./environment/controller/PPO_continuous_drone_velocity_solved.pth'))
-print('Saved Control policy loaded')
-# except:
-#     print('Could not load Control policy')
-#     sys.exit(1)  
+try:
+    CRTL_POLICY.load_state_dict(torch.load('./environment/controller/PPO_continuous_drone_velocity_solved.pth'))
+    print('Saved Control policy loaded')
+except:
+    print('Could not load Control policy')
+    sys.exit(1)  
 
 PLOT_LENGTH = 100
 CONV_SIZE = 256
@@ -402,7 +402,7 @@ class quad_worker():
             states_sens = self.sensor_sp()
             error = np.array([[0, self.vel_error[0], 0, self.vel_error[1], 0, self.vel_error[2], 0, 0, 0, 0, 0, 0, 0, 0]])
             self.control_network_in = self.aux_dl.dl_input(states_sens-error, [self.crtl_action])
-            crtl_network_in = torch.tensor(self.control_network_in, dtype=torch.float, device=self.device)
+            crtl_network_in = torch.tensor(self.control_network_in, dtype=torch.float, device=torch.device('cpu'))
             self.crtl_action = CRTL_POLICY.actor(crtl_network_in).cpu().detach().numpy()
             states, _, _ = self.quad_env.step(self.crtl_action)
             coordinates = np.concatenate((states[0, 0:5:2], self.quad_env.ang, np.zeros(4))) 

@@ -7,7 +7,7 @@ from visual_landing.memory_leak import debug_gpu
 import torchvision.models as tvmodels
 import numpy as np
 import torchvision.models as models
-
+torch.autograd.set_detect_anomaly(True)
 """
 MECHANICAL ENGINEERING POST-GRADUATE PROGRAM
 UNIVERSIDADE FEDERAL DO ABC - SANTO ANDRÉ, BRASIL
@@ -20,9 +20,9 @@ DESCRIPTION:
     PPO neural network model
     hidden layers has 64 neurons
 """
-H0 = 2**10
-H1 = 2**10
-H11 = 2**8
+H0 = 2**9
+H1 = 2**9
+H11 = 2**7
 H2 = 2**9
 SENS_SIZE = 75
 class Flatten(nn.Module):
@@ -48,36 +48,36 @@ class conv_forward(nn.Module):
         self.child = child
         super(conv_forward, self).__init__()
         
-        self.conv_1 = nn.Conv2d(in_channels = 3, out_channels = 32, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
-        self.conv_2 = nn.Conv2d(in_channels = 32, out_channels = 128, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
-        self.conv_3 = nn.Conv2d(in_channels = 128, out_channels = 256, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
-        self.conv_4 = nn.Conv2d(in_channels = 256, out_channels = 128, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
-        self.fc_1 = nn.Linear(128*10**2, H0)
+        self.conv_1 = nn.Conv2d(in_channels = 3, out_channels = 32, kernel_size=(8,8), stride=(4,4))
+        self.conv_2 = nn.Conv2d(in_channels = 32, out_channels = 64, kernel_size=(4,4), stride=(2,2))
+        self.conv_3 = nn.Conv2d(in_channels = 64, out_channels = 64, kernel_size=(3,3), stride=(1,1))
+        # self.conv_4 = nn.Conv2d(in_channels = 128, out_channels = 128, kernel_size=(3,3), stride=(1,1), padding=(1, 1))
+        self.fc_1 = nn.Linear(64*7**2, H0)
         
     def forward(self, x):
 
         # plot_conv(x, 0)
-        x = F.relu(self.conv_1(x))
-        x = torch.max_pool2d(x, 2)
+        x = torch.tanh(self.conv_1(x))
+        # x = torch.nn.functional.avg_pool2d(x, 2)
         # plot_conv(x, 1)
 
-        x = F.relu(self.conv_2(x))
-        x = torch.max_pool2d(x, 2)
+        x = torch.tanh(self.conv_2(x))
+        # x = torch.nn.functional.avg_pool2d(x, 2)
         # plot_conv(x, 2)
         
 
-        x = F.relu(self.conv_3(x))
-        x = torch.max_pool2d(x, 2)
+        x = torch.tanh(self.conv_3(x))
+        # x = torch.nn.functional.avg_pool2d(x, 2)
         # if not self.child:
         #     plot_conv(x, 3)
         
-        x = F.relu(self.conv_4(x))
+        # x = torch.tanh(self.conv_4(x))
         # x = torch.max_pool2d(x, 2)
         # plot_conv(x, 4)
         
         # print(x.size())
-        x = F.relu(self.fc_1(torch.flatten(x, start_dim=1)))
-
+        x = torch.tanh(self.fc_1(torch.flatten(x, start_dim=1)))
+        
         return x
 
 class conv3D_forward(nn.Module):
@@ -117,9 +117,9 @@ class actor_nn(nn.Module):
         super(actor_nn, self).__init__()  
         self.conv_ac = conv_forward(T, child)
         
-        self.fc_1 = nn.Linear(H0+SENS_SIZE, H1)                
-        self.fc_2 = nn.Linear(H1, H2)
-        self.fc_21 = nn.Linear(H2, H2)
+        self.fc_1 = nn.Linear(H0+SENS_SIZE, H2)                
+        # self.fc_2 = nn.Linear(H1, H2)
+        # self.fc_21 = nn.Linear(H2, H2)
         self.fc_3 = nn.Linear(H2, 3)
         
     def forward(self, image, sens):
@@ -128,7 +128,7 @@ class actor_nn(nn.Module):
 
         x = torch.cat((x, sens), dim=1)
         x = torch.tanh(self.fc_1(x))
-        x = torch.tanh(self.fc_2(x))        
+        # x = torch.tanh(self.fc_2(x))        
    
         x = torch.tanh(self.fc_3(x))
 
@@ -140,9 +140,9 @@ class critic_nn(nn.Module):
         
         self.conv_ct = conv_forward(T, child)
         
-        self.fc_1 = nn.Linear(H0+SENS_SIZE+3, H1)                
-        self.fc_2 = nn.Linear(H1, H2)
-        self.fc_21 = nn.Linear(H2, H2)
+        self.fc_1 = nn.Linear(H0+SENS_SIZE+3, H2)                
+        # self.fc_2 = nn.Linear(H1, H2)
+        # self.fc_21 = nn.Linear(H2, H2)
         self.fc_3 = nn.Linear(H2, 1)
         
     def forward(self, image, sens, action):
@@ -160,7 +160,7 @@ class critic_nn(nn.Module):
         # x = self.conv_ct(image)
         x = torch.cat((x, sens, action), dim=1)
         x = torch.tanh(self.fc_1(x))
-        x = torch.tanh(self.fc_2(x))   
+        # x = torch.tanh(self.fc_2(x))   
         # x = F.elu(self.fc_21(x))   
         x = self.fc_3(x)
         # print(x)
@@ -179,8 +179,8 @@ class ActorCritic(nn.Module):
        
         self.actor_nn = actor_nn(T, child).to(self.device)
         self.critic_nn = critic_nn(T, child).to(self.device)
-        
-        self.action_var = torch.full((action_dim,), action_std*action_std, device = self.device, dtype=torch.float)
+        self.std = torch.nn.Parameter(torch.tensor(action_std))
+        self.action_var = torch.full((action_dim,), 1, device = self.device, dtype=torch.float)
         
     def __get_dist(self, action_mean):
         action_log_std = self.action_log_std.expand_as(action_mean).to(self.device)
@@ -201,7 +201,7 @@ class ActorCritic(nn.Module):
 
         action_mean = self.forward(state, sens)
 
-        cov_mat = torch.diag(self.action_var).to(self.device)
+        cov_mat = torch.diag(self.action_var).to(self.device)*self.std*self.std
 
         dist = MultivariateNormal(action_mean, cov_mat)
         action = dist.sample()
@@ -218,7 +218,7 @@ class ActorCritic(nn.Module):
     def evaluate(self, state, sens, action, last_conv):   
         action_mean = self.forward(state, sens)
 
-        action_var = self.action_var.expand_as(action_mean)
+        action_var = self.action_var.expand_as(action_mean)*self.std*self.std
         cov_mat = torch.diag_embed(action_var).to(self.device)
         
         dist = MultivariateNormal(action_mean, cov_mat)
@@ -227,4 +227,5 @@ class ActorCritic(nn.Module):
         dist_entropy = dist.entropy()
         
         state_value = self.critic(state, sens, action)
+        # print(self.std)
         return action_logprobs, torch.squeeze(state_value), dist_entropy

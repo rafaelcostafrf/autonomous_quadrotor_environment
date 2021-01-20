@@ -25,17 +25,17 @@ DESCRIPTION:
 
 
 ## HYPERPARAMETERS - CHANGE IF NECESSARY ##
-lr_ac = 0.0001
-lr_ct = 0.0001
+lr_ac = 0.00005
+# lr_ct = 0.00001
 
-action_std = 0.15
-K_epochs = 8
+action_std = 0.1
+K_epochs = 5
 
-eps_clip = 0.1
+eps_clip = 0.2
 gamma = 0.99
 betas = (0.9, 0.999)
 DEBUG = 0
-BATCH_SIZE = 256
+BATCH_SIZE = 512*4
 
 
 class PPO:
@@ -60,8 +60,8 @@ class PPO:
         self.K_epochs = K_epochs
         
         self.policy = ActorCritic(T, action_dim, action_std, child)
-        self.optimizer_ac = torch.optim.Adam(self.policy.actor_nn.parameters(), lr=lr_ac, betas=betas)
-        self.optimizer_ct = torch.optim.Adam(self.policy.critic_nn.parameters(), lr=lr_ct, betas=betas)
+        self.optimizer_ac = torch.optim.Adam(self.policy.parameters(), lr=lr_ac, betas=betas)
+        # self.optimizer_ct = torch.optim.Adam(self.policy.critic_nn.parameters(), lr=lr_ct, betas=betas)
         
         self.policy_old = ActorCritic(T, action_dim, action_std, child)
         self.policy_old.load_state_dict(self.policy.state_dict())
@@ -94,8 +94,9 @@ class PPO:
         # print(self.running_n, self.running_mean, self.running_std)
     
     def optimizer_step(self, old_states, old_actions, old_logprobs, old_sens, old_conv, rewards, advantages, rand_batch):
-        self.optimizer_ct.zero_grad()
+
         self.optimizer_ac.zero_grad()
+        # self.optimizer_ct.zero_grad()
         
         old_states_sp = old_states[rand_batch].detach()
         old_actions_sp = old_actions[rand_batch].detach()
@@ -112,18 +113,19 @@ class PPO:
         ratios = (logprobs-old_logprobs_sp.flatten()).exp()
         surr1 = ratios * advantages_sp.flatten()
         surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages_sp.flatten()
-        actor_loss = torch.min(surr1, surr2)
-        entropy_loss = dist_entropy 
+        actor_loss = - torch.min(surr1, surr2)
+        entropy_loss = - dist_entropy 
         # print(state_values, rewards_sp)
         critic_loss = 0.5*self.MseLoss(state_values, rewards_sp)
         # print(actor_loss, entropy_loss)
-        loss_ac = -actor_loss - 0.01*entropy_loss
+        # print(actor_loss, entropy_loss, critic_loss)
+        loss_ac = actor_loss.mean() + 0.01*entropy_loss.mean() + critic_loss
         
         loss_ac.mean().backward()
         # torch.nn.utils.clip_grad_norm_(self.policy.parameters(), max_norm=0.5)
         self.optimizer_ac.step()
-        critic_loss.mean().backward()
-        self.optimizer_ct.step()
+        # critic_loss.mean().backward()
+        # self.optimizer_ct.step()
 
         self.critic_epoch_loss.append(critic_loss.mean().detach().cpu().numpy())
         self.actor_epoch_loss.append(actor_loss.mean().detach().cpu().numpy())
@@ -189,7 +191,7 @@ class PPO:
                 rand_batch = rand_total[step_i*BATCH_SIZE:(step_i+1)*BATCH_SIZE]
                 self.optimizer_step(old_states, old_actions, old_logprobs, old_sens, old_conv, rewards, advantages, rand_batch)
             rest_range = old_states.size()[0]%BATCH_SIZE
-            if rest_range != 0:                  
+            if rest_range > 1:                  
                 rand_batch = rand_total[-rest_range:]
                 self.optimizer_step(old_states, old_actions, old_logprobs, old_sens, old_conv, rewards, advantages, rand_batch)
             

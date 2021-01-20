@@ -34,8 +34,8 @@ def visual_reward(total_steps, marker_position, quad_position, quad_vel, control
 
     """
     done = False
-    error_p = 3
-    control_p = 1
+    error_p = 4
+    control_p = 0.1
     reward = 0
     cascading_error = [0.3, 1, 2, 5]
     cascading_rew = [4, 3, 2, 1]

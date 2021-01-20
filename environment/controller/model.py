@@ -15,8 +15,8 @@ DESCRIPTION:
     hidden layers has 64 neurons
 """
 
-# device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
-device = torch.device('cuda')
+device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
+# device = torch.device('cuda')
 class ActorCritic(nn.Module):
     def __init__(self, state_dim, action_dim, action_std):
         h1=64*2
