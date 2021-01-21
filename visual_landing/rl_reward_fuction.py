@@ -33,6 +33,7 @@ def visual_reward(total_steps, marker_position, quad_position, quad_vel, control
         Returns True if the episode is done./ else False 
 
     """
+    n_solved = 0
     done = False
     error_p = 4
     control_p = 0.1
@@ -76,7 +77,8 @@ def visual_reward(total_steps, marker_position, quad_position, quad_vel, control
             if flat_landed:
                 if on_target:
                     reward = 5
-                    print('SOLVED!')
+                    # print('SOLVED!')
+                    n_solved = 1
                 else:
                     reward = 1
             else:
@@ -96,4 +98,4 @@ def visual_reward(total_steps, marker_position, quad_position, quad_vel, control
 
 
     # print(reward)  
-    return reward, current_shaping, done
+    return reward, current_shaping, done, n_solved

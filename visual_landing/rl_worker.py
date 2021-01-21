@@ -67,6 +67,7 @@ CONV_SIZE = 256
        
 class quad_worker():
     def __init__(self, render, cv_cam, child_number = None, child = False):
+        self.n_solved = 0
         self.update = [0, None]
         self.done = False
         self.render = render
@@ -155,7 +156,7 @@ class quad_worker():
         self.marker_position = np.append(random_marker_position, 0.001)
         
         quad_random_z = -5*np.random.random()+1
-        quad_random_xy = self.marker_position[0:2]+(np.random.random(2)-0.5)*abs(-5-quad_random_z)/7*5
+        quad_random_xy = self.marker_position[0:2]+(np.random.random(2)-0.5)*abs(-5-quad_random_z)/7*4
         initial_state = np.array([quad_random_xy[0], 0, quad_random_xy[1], 0, quad_random_z, 0, 1, 0, 0, 0, 0, 0, 0])
         states, action = self.quad_env.reset(initial_state)
         return states, action
@@ -241,6 +242,7 @@ class quad_worker():
         if self.train_time:
             if self.train_calls % EVAL_FREQUENCY == 0:
                 self.eval_flag = True
+                self.n_solved = 0
                 self.reward_accum = 0
             self.train_time = False  
         
@@ -412,14 +414,14 @@ class quad_worker():
             # if self.quad_env.state[4] < -4.95:
             #     break
         
-        self.reward, self.last_shaping, self.visual_done = visual_reward(TOTAL_STEPS, self.marker_position, self.quad_env.state[0:5:2], self.quad_env.state[1:6:2], visual_action, self.last_shaping, self.internal_frame, self.quad_env.ang, self.quad_env.state[-3:])            
+        self.reward, self.last_shaping, self.visual_done, self.solved = visual_reward(TOTAL_STEPS, self.marker_position, self.quad_env.state[0:5:2], self.quad_env.state[1:6:2], visual_action, self.last_shaping, self.internal_frame, self.quad_env.ang, self.quad_env.state[-3:])            
         if self.ppo_calls >= 1:                   
             if self.eval_flag:
                 self.reward_accum += self.reward
             if not self.eval_flag: 
                 self.memory.append_memory_rt(self.reward, self.visual_done)
-
-                
+        if self.eval_flag:
+            self.n_solved += self.solved        
         
         
         if not self.child :                    
@@ -486,7 +488,7 @@ class quad_worker():
                         self.axs[4].grid()
                         self.axs[4].plot(np.arange(0,len(self.mean_eval)), self.mean_eval)
                         print('Total Steps: {:d}'.format(self.n_samples),end='\t')
-                    print('Evaluation Mean: {:.2f}'.format(self.mean_eval[-1]))
+                    print('Evaluation Mean: {:.2f} \t Solved: {:.2%}'.format(self.mean_eval[-1], self.n_solved/EVAL_EPISODES))
 
             self.reset()
 
