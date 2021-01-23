@@ -12,53 +12,81 @@ process = psutil.Process(os.getpid())
 # ENVIRONMENT AND CONTROLLER SETUP
 from environment.quadrotor_env_opt import quad, sensor
 from environment.quaternion_euler_utility import deriv_quat
-from environment.controller.model import ActorCritic
+from environment.controller.model import ActorCritic_old
 from environment.controller.dl_auxiliary import dl_in_gen
 from collections import deque
 
 from visual_landing.ppo_trainer import PPO
-from visual_landing.rl_memory import Memory
+from visual_landing.rl_memory import Memory_2D
 from visual_landing.rl_reward_fuction import visual_reward
 from visual_landing.memory_leak import debug_gpu
 import matplotlib.pyplot as plt
+import matplotlib
+import pandas as pd
+
+plot_eval = False
+save_pgf = True
+nome = 'pouso_aleatorio'
+if save_pgf:
+    matplotlib.use("pgf")
+    matplotlib.rcParams.update({
+        "pgf.texsystem": "lualatex",
+        'font.family': 'serif',
+        'text.usetex': True,
+        'pgf.rcfonts': False,
+    })
+
+
+EVAL_TOTAL = 200
 
 T = 5
-T_visual_time = [9, 6, 3, 2, 0]
-T_visual = len(T_visual_time)
-T_total = T_visual_time[0]+1
+T_visual_time = 0
+T_visual = 1
+T_total = 1
 EVAL_FREQUENCY = 1
 
 TIME_STEP = 0.01
-TOTAL_STEPS = 4000
+TOTAL_STEPS = 1500
 
-IMAGE_LEN = np.array([88, 88])
+IMAGE_LEN = np.array([84, 84])
+IMAGE_CHANNELS = 3
 TASK_INTERVAL_STEPS = 10
 BATCH_SIZE = 356
-VELOCITY_SCALE = [1, 1, 1]
-VELOCITY_D = [0, 0, -VELOCITY_SCALE[2]]
+VELOCITY_SCALE = [0.5, 0.5, 1]
+VELOCITY_D = [0, 0, -VELOCITY_SCALE[2]/1.5]
 #CONTROL POLICY
 AUX_DL = dl_in_gen(T, 13, 4)
 state_dim = AUX_DL.deep_learning_in_size
-CRTL_POLICY = ActorCritic(state_dim, action_dim=4, action_std=0)
-try:
-    CRTL_POLICY.load_state_dict(torch.load('./environment/controller/PPO_continuous_solved_drone.pth'))
-    print('Saved Control policy loaded')
-except:
-    print('Could not load Control policy')
-    sys.exit(1)  
+CRTL_POLICY = ActorCritic_old(state_dim, action_dim=4, action_std=0)
+# try:
+CRTL_POLICY.load_state_dict(torch.load('./environment/controller/PPO_continuous_drone_velocity_solved.pth'))
+print('Saved Control policy loaded')
+# except:
+#     print('Could not load Control policy')
+#     sys.exit(1)  
 
 PLOT_LENGTH = 100
 CONV_SIZE = 256
-       
+
+ERROR_POS = np.zeros([EVAL_TOTAL, TOTAL_STEPS, 3])    
+VEL = np.zeros([EVAL_TOTAL, TOTAL_STEPS,3])    
+CONTROL = np.zeros([EVAL_TOTAL, TOTAL_STEPS,3])    
+
 class quad_worker():
     def __init__(self, render, cv_cam, child_number = None, child = False):
+        print(time.time())
+        self.n_episodes = 0
+        self.total_solved = 0
+        self.total_reward = 0
+        self.total_time = 0
+        self.delta_v = 0
         self.update = [0, None]
         self.done = False
         self.render = render
         self.cv_cam = cv_cam
         self.ldg_policy = PPO(3, child, T_visual)
         self.train_time = False
-
+        self.batch_size = 1024
         self.child = child
         if child:
             self.child_number = child_number
@@ -80,7 +108,7 @@ class quad_worker():
         self.aux_dl =  dl_in_gen(T, 13, 4)
         self.control_network_in = self.aux_dl.dl_input(states, action)
         self.image_zeros() 
-        self.memory = Memory()
+        self.memory = Memory_2D(self.batch_size, IMAGE_LEN, IMAGE_CHANNELS)
         
         #TASK MANAGING
         self.wait_for_task = False
@@ -104,7 +132,7 @@ class quad_worker():
         self.cv_cam = cv_cam
         self.cv_cam.cam.setPos(0, 0, 0)
         self.cv_cam.cam.setHpr(0, 270, 0)
-        self.cv_cam.cam.reparentTo(self.render.quad_model)
+        # self.cv_cam.cam.reparentTo(self.render.quad_model)
                
         self.eval_flag = True
         self.reward_accum = 0
@@ -117,11 +145,17 @@ class quad_worker():
         self.render.checker.setPos(*tuple(random_marker_position), 0.001)
         self.marker_position = np.append(random_marker_position, 0.001)
         
-        
         quad_random_z = -5*np.random.random()+1
-        quad_random_xy = self.marker_position[0:2]+(np.random.random(2)-0.5)*quad_random_z/7*5/1.2
+        quad_random_xy = self.marker_position[0:2]+(np.random.random(2)-0.5)*abs(-5-quad_random_z)/7*4
         initial_state = np.array([quad_random_xy[0], 0, quad_random_xy[1], 0, quad_random_z, 0, 1, 0, 0, 0, 0, 0, 0])
         states, action = self.quad_env.reset(initial_state)
+        
+        
+        distancia = np.array([quad_random_z+5, quad_random_xy[0] - random_marker_position[0], quad_random_xy[1] - random_marker_position[1]])
+        distancia = np.linalg.norm(distancia)
+        if plot_eval:
+            print('Initial Distance: {:.2f}'.format(distancia))
+        
         return states, action
         
     def sensor_sp(self):
@@ -138,29 +172,32 @@ class quad_worker():
             return states_sens
             
     def image_zeros(self):
-        self.images = np.zeros([T_visual_time[0]+1, IMAGE_LEN[0], IMAGE_LEN[0]])
+        self.images = np.zeros([IMAGE_CHANNELS, IMAGE_LEN[0], IMAGE_LEN[0]])
      
     def image_roll(self, image):
-        image_copy = np.copy(image)
-        # std = np.std(image_copy)
-        # if std > 1e-5:
-        #     image_copy = (image_copy-np.mean(image_copy))/np.std(image_copy)
-        # else:
-            # image_copy = (image_copy-np.mean(image_copy))
+
+        image_copy = (image[:, :, 0:3]).copy()
+        # image_copy = image_.copy()
         self.print_image = image_copy
-        self.images = np.roll(self.images, 1, 0)
-        self.images[0] = image_copy
+        
+        image_copy = np.swapaxes(image_copy, 2, 0)
+        image_copy = np.swapaxes(image_copy, 1, 2)
 
         
+        # image_copy = self.normalize_hsv(image_copy)
+        image_copy = image_copy/255.0
         
+        self.images = image_copy
+
     def take_picture(self):
         ret, image = self.cv_cam.get_image() 
         if ret:
-            return cv.cvtColor(image[:,:,0:3], cv.COLOR_BGR2GRAY)/255.0
-            # print(np.shape(image))
-            # return np.swapaxes(image[:,:,0:3]/255.0, 0, 2)
+            # out =  cv.cvtColor(image, cv.COLOR_BGR2GRAY)/255.0
+              # out =  cv.cvtColor(image, cv.COLOR_BGR2HSV)
+              out = image
         else:
-            return np.zeros([1, IMAGE_LEN[0], IMAGE_LEN[0]])
+            out = np.zeros([IMAGE_LEN, IMAGE_LEN, 4])
+        return out
    
     def reset(self):
         states, action = self.quad_reset_random()
@@ -202,6 +239,7 @@ class quad_worker():
         
         self.quad_model.setPos(*pos)
         self.quad_model.setHpr(*ang_deg)
+        self.cv_cam.cam.setPos(*pos)
         self.render.dlightNP.setPos(*pos)
         for prop, a in zip(self.prop_models, self.a):
             prop.setHpr(a, 0, 0)
@@ -214,7 +252,7 @@ class quad_worker():
         states_sens = self.sensor_sp()
         # CONTROL DIFFERENCE
         error = np.array([[0, self.vel_error[0], 0, self.vel_error[1], 0, self.vel_error[2], 0, 0, 0, 0, 0, 0, 0, 0]])
-
+        
         self.control_network_in = self.aux_dl.dl_input(states_sens-error, [self.crtl_action])
         crtl_network_in = torch.FloatTensor(self.control_network_in).to('cpu')
 
@@ -224,32 +262,92 @@ class quad_worker():
 
         coordinates = np.concatenate((states[0, 0:5:2], self.quad_env.ang, np.zeros(4))) 
         self.render_position(coordinates, self.marker_position)
-        if TASK_INTERVAL_STEPS-self.internal_frame <= T_visual_time[0]+2:                
-            image = self.take_picture()
-            self.image_roll(image)
-        if self.internal_frame == TASK_INTERVAL_STEPS or self.quad_env.state[4] < -4.95:
+        image = self.take_picture()
+        self.image_roll(image)
+        self.delta_v += np.sum(np.abs(states[0, 1:6:2]))
+        
+        if plot_eval:
+            ERROR_POS[self.n_episodes-1, self.quad_env.i, :] = states[0, 0:5:2] - self.marker_position + np.array([0, 0, 5])
+            VEL[self.n_episodes-1, self.quad_env.i, :] = states[0, 1:6:2]
+            CONTROL[self.n_episodes-1, self.quad_env.i, :] = self.vel_error
+                
+        if self.internal_frame == TASK_INTERVAL_STEPS:
             self.internal_frame = 0
             self.step()
+            
         while True:
+            if self.n_episodes >= EVAL_TOTAL:
+                return task.done
+            
             if time.time()-init_time > 0.01:
                 return task.cont
+            
     
     def step(self):
-        image_in = np.copy(self.images[T_visual_time])
-                     
-        network_in = torch.Tensor(image_in).to(self.device).detach()
-        control_in = torch.Tensor([self.control_network_in]).to(self.device).detach()
+        network_in = torch.Tensor(self.images).to(self.device).detach()    
         network_in = torch.unsqueeze(network_in, 0)
-        visual_action, _ = self.ldg_policy.policy_old(network_in, control_in, torch.zeros([1,3]).to(self.device))
+        
+        control_in = torch.Tensor([self.control_network_in]).to(self.device).detach()
+        visual_action = self.ldg_policy.policy_old(network_in, control_in)
         
         visual_action = visual_action.detach().cpu().numpy().flatten()
 
         self.vel_error = visual_action*VELOCITY_SCALE+VELOCITY_D
                 
-        self.reward, self.last_shaping, self.visual_done = visual_reward(TOTAL_STEPS, self.marker_position, self.quad_env.state[0:5:2], self.quad_env.state[1:6:2], self.vel_error, self.last_shaping, self.internal_frame, self.quad_env.ang, self.quad_env.state[-3:])
+        self.reward, self.last_shaping, self.visual_done, self.solved = visual_reward(TOTAL_STEPS, self.marker_position, self.quad_env.state[0:5:2], self.quad_env.state[1:6:2], self.vel_error, self.last_shaping, self.internal_frame, self.quad_env.ang, self.quad_env.state[-3:])
         self.reward_accum += self.reward
         self.ppo_calls += 1   
         if self.visual_done:
-            print('Episode Evaluation: {:.2f}'.format(self.reward_accum), end = '                                                \n')
+            if plot_eval:
+                P = 0.7
+                ERROR_AVG = np.mean(ERROR_POS, axis=0)
+                VEL_AVG = np.mean(VEL, axis=0)
+                CONTROL_AVG = np.mean(CONTROL, axis=0)
+                
+                ERROR_STD = np.std(ERROR_POS, axis=0)
+                VEL_STD = np.std(VEL, axis=0)
+                CONTROL_STD = np.std(CONTROL, axis=0)
+                plot_time = np.arange(0, TOTAL_STEPS*TIME_STEP, TIME_STEP)
+                
+                
+                
+                labels = ['X', 'Y', 'Z']
+                labels_1 = ['$V_x$', '$V_y$', '$V_z$']
+                labels_2 = ['$C_x$', '$C_y$', '$C_z$']
+                colors = ['r', 'g', 'b']
+                fig, axs = plt.subplots(4, 1, figsize=(P*21*0.3937,P*29.7*0.3937))
+                
+                lines = axs[0].plot(plot_time[10:self.quad_env.i], ERROR_AVG[10:self.quad_env.i, 0:3], label = [['x'], ['y'], ['z']])
+                
+                lines_1 = axs[1].plot(plot_time[10:self.quad_env.i], VEL_AVG[10:self.quad_env.i, 0], color = 'r', label = '$V_x$')
+                lines_2 = axs[1].plot(plot_time[10:self.quad_env.i], CONTROL_AVG[10:self.quad_env.i, 0], ls = '--', color = 'r', label = '$C_x$')
+                
+                lines_3 = axs[2].plot(plot_time[10:self.quad_env.i], VEL_AVG[10:self.quad_env.i, 1], color = 'b', label = '$V_y$')
+                lines_4 = axs[2].plot(plot_time[10:self.quad_env.i], CONTROL_AVG[10:self.quad_env.i, 1], ls = '--', color = 'b', label = '$C_y$')
+                
+                lines_5 = axs[3].plot(plot_time[10:self.quad_env.i], VEL_AVG[10:self.quad_env.i, 2], color = 'g', label = '$V_z$')
+                lines_6 = axs[3].plot(plot_time[10:self.quad_env.i], CONTROL_AVG[10:self.quad_env.i, 2], ls = '--', color = 'g', label = '$C_z$')
+                
+                
+                
+                axs[0].legend(lines, labels)
+                axs[1].legend()
+                axs[2].legend()
+                axs[3].legend()
+    
+    
+                for axis in axs:
+                    axis.grid(True)
+                
+                if save_pgf:
+                    plt.savefig(nome+'.pgf')      
+                else:
+                    plt.show()
+                
+            self.n_episodes += 1
+            self.total_reward += self.reward_accum
+            self.total_solved += self.solved
+            self.total_time +=  self.quad_env.i*TIME_STEP
+            print('Episode Evaluation: {:.2f} \tAverage Reward: {:.2f} \tAverage Solved: {:.2%} \tEpisodes: {:d} \tTime: {:.2f} \tDelta V: {:.2f}'.format(self.reward_accum, self.total_reward/self.n_episodes, self.total_solved/self.n_episodes, self.n_episodes, self.total_time/self.n_episodes, self.delta_v/self.n_episodes), end = '                                                \n')
             self.reward_accum = 0
             self.reset()

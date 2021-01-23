@@ -55,7 +55,7 @@ DESCRIÇÃO:
     
     
 """
-camera_size = 160
+camera_size = 84
 mydir = os.path.abspath(sys.path[0])
 
 mydir = Filename.fromOsSpecific(mydir).getFullpath()
