@@ -35,7 +35,7 @@ eps_clip = 0.2
 gamma = 0.99
 betas = (0.9, 0.999)
 DEBUG = 0
-BATCH_SIZE = 512*4
+BATCH_SIZE = 512*3
 
 
 class PPO:

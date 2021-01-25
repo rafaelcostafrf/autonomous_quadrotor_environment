@@ -1,0 +1,10 @@
+panda3d==1.10.7
+opencv_python==4.4.0.44
+matplotlib==3.3.2
+numpy==1.19.2
+psutil==5.7.2
+pandas==1.1.5
+scipy==1.5.2
+torchvision==0.8.1
+torch==1.7.0
+direct==1.0.1
