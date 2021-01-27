@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 import pandas as pd
 
-plot_eval = False
+plot_eval = True
 save_pgf = True
 nome = 'pouso_aleatorio'
 if save_pgf:
@@ -37,7 +37,7 @@ if save_pgf:
     })
 
 
-EVAL_TOTAL = 200
+EVAL_TOTAL = 1
 
 T = 5
 T_visual_time = 0
@@ -311,24 +311,22 @@ class quad_worker():
                 
                 
                 
-                labels = ['X', 'Y', 'Z']
-                labels_1 = ['$V_x$', '$V_y$', '$V_z$']
-                labels_2 = ['$C_x$', '$C_y$', '$C_z$']
-                colors = ['r', 'g', 'b']
+                labels = ['X (m)', 'Y (m)', 'Z (m)']
+
                 fig, axs = plt.subplots(4, 1, figsize=(P*21*0.3937,P*29.7*0.3937))
                 
-                lines = axs[0].plot(plot_time[10:self.quad_env.i], ERROR_AVG[10:self.quad_env.i, 0:3], label = [['x'], ['y'], ['z']])
+                lines = axs[0].plot(plot_time[10:self.quad_env.i], ERROR_AVG[10:self.quad_env.i, 0:3])
                 
-                lines_1 = axs[1].plot(plot_time[10:self.quad_env.i], VEL_AVG[10:self.quad_env.i, 0], color = 'r', label = '$V_x$')
-                lines_2 = axs[1].plot(plot_time[10:self.quad_env.i], CONTROL_AVG[10:self.quad_env.i, 0], ls = '--', color = 'r', label = '$C_x$')
+                lines_1 = axs[1].plot(plot_time[10:self.quad_env.i], VEL_AVG[10:self.quad_env.i, 0], color = 'r', label = '$V_x (m/s)$')
+                lines_2 = axs[1].plot(plot_time[10:self.quad_env.i], CONTROL_AVG[10:self.quad_env.i, 0], ls = '--', color = 'r', label = '$C_x (m/s)$')
                 
-                lines_3 = axs[2].plot(plot_time[10:self.quad_env.i], VEL_AVG[10:self.quad_env.i, 1], color = 'b', label = '$V_y$')
-                lines_4 = axs[2].plot(plot_time[10:self.quad_env.i], CONTROL_AVG[10:self.quad_env.i, 1], ls = '--', color = 'b', label = '$C_y$')
+                lines_3 = axs[2].plot(plot_time[10:self.quad_env.i], VEL_AVG[10:self.quad_env.i, 1], color = 'b', label = '$V_y (m/s)$')
+                lines_4 = axs[2].plot(plot_time[10:self.quad_env.i], CONTROL_AVG[10:self.quad_env.i, 1], ls = '--', color = 'b', label = '$C_y (m/s)$')
                 
-                lines_5 = axs[3].plot(plot_time[10:self.quad_env.i], VEL_AVG[10:self.quad_env.i, 2], color = 'g', label = '$V_z$')
-                lines_6 = axs[3].plot(plot_time[10:self.quad_env.i], CONTROL_AVG[10:self.quad_env.i, 2], ls = '--', color = 'g', label = '$C_z$')
+                lines_5 = axs[3].plot(plot_time[10:self.quad_env.i], VEL_AVG[10:self.quad_env.i, 2], color = 'g', label = '$V_z (m/s)$')
+                lines_6 = axs[3].plot(plot_time[10:self.quad_env.i], CONTROL_AVG[10:self.quad_env.i, 2], ls = '--', color = 'g', label = '$C_z (m/s)$')
                 
-                
+                axs[3].set_xlabel('Tempo (s)')
                 
                 axs[0].legend(lines, labels)
                 axs[1].legend()

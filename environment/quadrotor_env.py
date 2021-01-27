@@ -172,7 +172,10 @@ class quad():
         y = np.array([f, m[0,0], m[1,0], m[2,0]])
         
         u = np.linalg.solve(x, y)
+        if np.logical_or(u > T2WR*M*G/4/K_F, u < 0).any():
+            print('clip')
         u = np.clip(u, 0, T2WR*M*G/4/K_F)
+
         
         w_1 = np.sqrt(u[0])
         w_2 = np.sqrt(u[1])
@@ -695,17 +698,17 @@ class plotter():
         
     def plot(self, nome='padrao'):
         P = 0.7
-        fig, axs = plt.subplots(3, figsize=(P*21*0.3937,P*29.7*0.3937))
+        fig, self.axs = plt.subplots(3, figsize=(P*21*0.3937,P*29.7*0.3937))
         self.states = np.array(self.states)
         self.times = np.array(self.times)
         for print_state, label, line_style, axis_place, color, name in zip(self.print_list, self.plot_labels, self.line_styles, self.plot_place, self.color, self.axis_labels):
-            axs[axis_place].plot(self.times, self.states[:,print_state], label = label, ls=line_style, lw=0.8, color = color)
-            axs[axis_place].legend()
-            axs[axis_place].grid(True)
-            axs[axis_place].set(ylabel=name)
+            self.axs[axis_place].plot(self.times, self.states[:,print_state], label = label, ls=line_style, lw=0.8, color = color)
+            self.axs[axis_place].legend()
+            self.axs[axis_place].grid(True)
+            self.axs[axis_place].set(ylabel=name)
         plt.xlabel('tempo (s)')
         # plt.savefig(nome+'.pgf')
-        plt.show()
+        # plt.show()
         if self.depth_plot:
             fig3d = plt.figure('3D map')
             ax = Axes3D(fig3d)

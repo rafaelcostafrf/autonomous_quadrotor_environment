@@ -39,7 +39,7 @@ except:
 
 T_ERROR = np.array([0, 1])
 ERROR = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                  [0, -5, 0, -5, 0, -5, 0, 0, 0, 0, 0, 0, 0, 0]])
+                  [0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
 
 INT_STATE = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
 RAMP = np.linspace(ERROR[0], ERROR[1], max_timesteps)
@@ -54,8 +54,8 @@ i_alvo=0
 t=0
 i = 0
 nome = 'ramp_unitario_XYZ'
-degrau = False
-ramp = True
+degrau = True
+ramp = False
 
 if degrau:
     while not done and i < max_timesteps:
@@ -72,7 +72,7 @@ if degrau:
                 else:
                     i_alvo += 1
     env_plot.plot(nome)
-
+    
 if ramp:
     while not done and i < max_timesteps:
         ERROR = RAMP[i]
@@ -83,3 +83,4 @@ if ramp:
         t+=time_int_step
         i+= 1
     env_plot.plot(nome)
+    
