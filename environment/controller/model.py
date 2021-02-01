@@ -19,8 +19,8 @@ device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
 # device = torch.device('cuda')
 class ActorCritic(nn.Module):
     def __init__(self, state_dim, action_dim, action_std):
-        h1=64*2
-        h2=64*2
+        h1=64*1
+        h2=64*1
         print("Tamanho da Rede: {:d}".format(h1))
         super(ActorCritic, self).__init__()
         # action mean range -1 to 1
@@ -97,7 +97,8 @@ class ActorCritic_old(nn.Module):
                 nn.Tanh(),
                 nn.Linear(h2, 1)
                 ).to(device)
-        self.action_var = torch.full((action_dim,), action_std*action_std, dtype=torch.float).to(self.device)
+        self.std = torch.nn.Parameter(torch.tensor(action_std))
+        self.action_var = torch.full((action_dim,), 1, device = self.device, dtype=torch.float)
         
     def forward(self):
         raise NotImplementedError
@@ -105,8 +106,8 @@ class ActorCritic_old(nn.Module):
     def act(self, state, memory):
         action_mean = self.actor(state)
 
-        cov_mat = torch.diag(self.action_var).to(self.device)
-        
+        cov_mat = torch.diag(self.action_var).to(self.device)*self.std*self.std
+
         dist = MultivariateNormal(action_mean, cov_mat)
         action = dist.sample()
         action_logprob = dist.log_prob(action)
@@ -121,13 +122,14 @@ class ActorCritic_old(nn.Module):
     def evaluate(self, state, action):   
         action_mean = self.actor(state)
         
-        action_var = self.action_var.expand_as(action_mean)
+        action_var = self.action_var.expand_as(action_mean)*self.std*self.std
         cov_mat = torch.diag_embed(action_var).to(self.device)
         
         dist = MultivariateNormal(action_mean, cov_mat)
         
         action_logprobs = dist.log_prob(action)
         dist_entropy = dist.entropy()
+        
         state_value = self.critic(state)
         print(state_value.size())
         return action_logprobs, torch.squeeze(state_value), dist_entropy
