@@ -1,0 +1,68 @@
+Feito:
+
+Controlador de Velocidade - Funcionando muito bem, com média de tempo de assentamento de 2 segundos - Erro de estado permanente é um problema mas não estoura, mantendo na faixa de 0.1 rad e 0.005 metros - este erro é insignificante para um quadrirrotor real, os sensores não tem nem a sensibilidade para estas leituras, mas em uma simulação são chatos de "olhar".
+
+Pouso autônomo - Finalmente um resultado adequado, no ultimo treinamento consegui uma taxa de pouso bem sucedido de 93%. 
+
+O pouso autônomo funciona sem nenhum método de detecção de imagem, então o processo é muito rápido. A entrada da rede neural é uma imagem 82x82 olhando para o solo e os dados dos sensores do quadrirrotor (os sensores contem deriva e ruído branco). Na câmera embarcada do quadrirrotor é considerado que há um gimbal 3DOF para manter a imagem para baixo, independente da atitude do quadrirrotor. O marco artificial inicia em uma posição aleátória no mundo, e o quadrirrotor em uma posição aleatória em relação a este marco, sempre com a visão inicial do marco. A tarefa então é pousar o quadrirrotor neste marco, seguindo alguns pré requisitos:
+O pouso tem que ser suave (baixa velocidade), plano (atitude paralela ao chão) e preciso (no centro ou muito próximo do centro do marco artificial). 
+
+O quadrirrotor é controlado diretamente pela rede neural, que dá um alvo de velocidade para o quadrirrotor, este alvo passa pelo controlador que atua na aeronave para atingi-lo. 
+Se o quadrirrotor ultrapassar o cone de visão do marco artificial, é considerado um episódio mal sucedido. 
+É considerado que o quadrirrotor pousou se ele estiver abaixo de 5cm do solo.
+A velocidade máxima do quadrirrotor no pouso é 0.3 m/s em módulo nos três eixos. 
+É considerado que o quadrirrotor pousou no alvo se ele estiver até 14cm de erro em módulo (x e y) do marco artificial.
+
+São restrições bem exigentes, que provavelmente se exigidas para pilotos humanos, a rede neural deverá se sair melhor em comparação.
+
+Tese: Praticamente "Tudo" escrito, falta organizar melhor os tópicos, alguns assuntos estão repitidos, e talvez eu tenha utilizado muitas referências bibliográficas. O mais preocupante são os resultados, que demoram para eu conseguir retirar, mas o principal é que funciona e está tudo programado, é praticamente ter paciência e rodar todos os resultados que queremos mostrar.
+
+
+Falta:
+
+Controlador de velocidade:
+1. Fazer um treinamento com pelo menos 3 topografias diferentes e expor os resultados (pelo menos 3 dias fazendo os treinamentos e recolhendo os resultados). 
+2. Fazer 5 treinamentos com a melhor topografia e expor a curva de recompensa com esta topografia, assim temos uma certeza boa de que o resultado sempre vai convergir, independentemente da aleatoriedade do problema. 
+3. Achar um método legal para a determinação dos ganhos PID do quadrirrotor, assim podendo comparar o controlador obtido com um controlador linear classico. 
+4. Realizar mais alguns testes de seguimento de trajetória, por enquanto só tenho degrau e rampa, talvez curvas senoidais ou espirais. 
+
+
+Pouso Autônomo:
+1. Mesma coisa do controlador de velocidade, com o problema de que demora ainda mais tempo para ter uma convergência legal de resultados. 
+2. Praticamente impossível, teria que ter 200 horas só para realizar estes treinamentos. 
+3. Comparação - Este é um passo importante, já que o algoritmo "detecta" automaticamente onde deve pousar, eu não sei uma maneira adequada de comparar. comparar com uma trajetória matemática seria ótimo, mas não seria justo, já que para a trajetória seria necessário a posição do alvo, enquanto a rede neural não precisa deste dado. Outra opção seria comparar com pilotos humanos, o software já está pronto e funcionando, mas temos o problema da COVID, não podemos levar pessoas para o laboratório por exemplo. Talvez com algum algoritmo de reconhecimento de imagem + uma trajetória matemática perfeita, e comparar o tempo computacional?
+
+Corrigir a tese para a quali.
+
+
+Pós Quali:
+
+Existem dois caminhos grandes a se seguir, provavelmente só terei tempo para um deles:
+
+1. O combinado desde o começo: Implementação dos algoritmos no quadrirrotor real - Provavelmente consigo fazer a RN de pouso autônomo rodar diretamente no raspberry pi. O forward dela não é tão demorado e a rede não tem tantos parâmetros assim, mesmo assim não sei se o pouso é garantido, já que o mundo modelado 3D é perfeito em relação a ruído e cores, enquanto em uma câmera real teremos este tipo de problema. -- Também não temos um gimbal 3DOF para o teste --
+
+2. Treinar a RN de pouso em ambientes mais complexos, alterando as texturas e o ambiente, incluindo um BIAS maior de sensores e fatores externos como vento e desbalanceamento de motores, incluindo ruídos nas imagens e indeterminações. Assim vamos ter um sistema de pouso mais robusto, que pode ser mais bem sucedido em um ambiente real - O custo computacional iria aumentar muito (por provavelmente ter que aumentar a quantidade de parâmetros na RN), e provavelmente não conseguiriamos rodar esta rede no raspberry pi. 
+
+
+Celso Setsuo Kurashima - Informação - Talvez suplente - Visão Computacional
+André Luiz Brandão - CMCC
+Fernando Teubl Ferreira - CMCC
+Ronaldo Cristiano Prati - CMCC
+André Fenili
+Luiz Martins
+Magno
+Alfredo Lordello
+Luiz Antonio Celiberto Junior 
+Denis Fantinato - CMCC - Unicamp
+
+Diego:
+
+Luiz Martins -- Magno (suplente)
+Luiz Antonio Celiberto Junior -- Denis (suplente)
+
+
+Non-Linear Dynamics Springer
+Communications in nonlinear science
+
+
+
