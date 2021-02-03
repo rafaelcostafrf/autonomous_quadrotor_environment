@@ -11,7 +11,7 @@ import time
 from environment.quadrotor_env import quad, plotter
 from environment.controller.dl_auxiliary import dl_in_gen
 from environment.controller.model import ActorCritic
-import threading
+from multiprocessing import Process, Queue, Pool
 
 
 
@@ -59,7 +59,15 @@ class Memory:
         del self.rewards[:]
         del self.is_terminals[:]
         del self.values[:]
-
+    
+    def convert_memory(self):
+        self.actions = torch.stack(self.actions)
+        self.states = torch.stack(self.states)
+        self.logprobs = torch.stack(self.logprobs)
+        self.rewards = torch.Tensor(self.rewards)
+        self.is_terminals = torch.Tensor(self.is_terminals)
+        self.values = torch.Tensor(self.values)
+        
 class PPO:
     def __init__(self, state_dim, action_dim, action_std, lr, betas, gamma, K_epochs, eps_clip):
         self.lr = lr
@@ -104,7 +112,8 @@ class PPO:
             returns.insert(0, gae + values[i])
 
         adv = np.array(returns) - values[:-1]
-        return np.array(returns)[:,0], (adv - np.mean(adv)) / (np.std(adv) + 1e-10)
+
+        return np.array(returns), (adv - np.mean(adv)) / (np.std(adv) + 1e-10)
 
     def update(self, memory):
         # Monte Carlo estimate of rewards:
@@ -121,16 +130,16 @@ class PPO:
         # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
         
         # convert list to tensor
-        old_states = torch.squeeze(torch.stack(memory.states).to(device), 1).detach()
-        old_actions = torch.squeeze(torch.stack(memory.actions).to(device), 1).detach()
-        old_logprobs = torch.squeeze(torch.stack(memory.logprobs), 1).to(device).detach()
-        old_values = torch.squeeze(torch.stack(memory.values), 1).to(device).detach()
-        rewards = np.array(memory.rewards)
+        old_states = torch.Tensor(memory.states).type(torch.float).to(device).detach()
+        old_actions = torch.Tensor(memory.actions).type(torch.float).to(device).detach()
+        old_logprobs = torch.Tensor(memory.logprobs).type(torch.float).to(device).detach().flatten()
+        old_values = torch.Tensor(memory.values).type(torch.float).to(device).detach()
+        rewards = np.array(memory.rewards).astype(float)
         # advantages = rewards - old_values.detach()[0] 
         
         rewards, advantages = self.get_advantages(old_values, np.logical_not(memory.is_terminals), rewards)
-        advantages = torch.tensor(advantages).to(device)
-        rewards = torch.tensor(rewards).to(device)
+        advantages = torch.tensor(advantages).type(torch.float).to(device)
+        rewards = torch.tensor(rewards).type(torch.float).to(device)
         # advantages = (advantages - advantages.mean())/(advantages.std()+1e-5)
         # Optimize policy for K epochs:
         # print(memory.rewards, rewards, memory.is_terminals)
@@ -146,10 +155,12 @@ class PPO:
             
             # print(rd_idx.shape, old_states_sp.shape, old_actions_sp.shape, old_logprobs_sp.shape, advantages_sp.shape, rewards_sp.shape)
             logprobs, state_values, dist_entropy = self.policy.evaluate(old_states_sp, old_actions_sp)
-            
+            # print(logprobs.type(), state_values.type(), dist_entropy.type())
+            # print(old_states_sp.type(), old_actions_sp.type(), old_logprobs_sp.type(), advantages_sp.type(), rewards_sp.type())
             # advantages_sp = rewards_sp - state_values
             # Finding the ratio (pi_theta / pi_theta__old):
-            ratios = torch.exp(logprobs - old_logprobs_sp.detach())
+            ratios = torch.exp(logprobs.flatten() - old_logprobs_sp.detach().flatten())
+
 
             # Finding Surrogate Loss:
             # print(ratios.size(), logprobs.size(), old_logprobs_sp.size(), advantages_sp.size(), state_values.size(), rewards_sp.size())
@@ -157,9 +168,10 @@ class PPO:
             surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages_sp
             critic_loss = 0.5*self.MseLoss(state_values, rewards_sp)
             actor_loss = -torch.min(surr1, surr2)
-            entropy_loss = - 0.01*dist_entropy
+            entropy_loss = - 0.01*dist_entropy.flatten()
 
             # print(critic_loss, actor_loss, entropy_loss)
+            # print(actor_loss.size(), critic_loss.size(), entropy_loss.size())
             loss = actor_loss + critic_loss + entropy_loss
             # take gradient step
             self.optimizer.zero_grad()
@@ -169,7 +181,7 @@ class PPO:
         # Copy new weights into old policy:
         self.policy_old.load_state_dict(self.policy.state_dict())
 
-class worker():
+class worker_f():
     def __init__ (self, size):
         self.env = quad(time_int_step, max_timesteps, euler=0, direct_control=1, T=T)
         self.size = size
@@ -187,7 +199,7 @@ class worker():
             for t in range(max_timesteps):        
                 # Converts the quadrotor past states and actions to neural network input
                 network_in = self.aux_dl.dl_input(state, action)        
-                
+
                 t_since_last_plot += 1
                 self.time_step +=1
                 
@@ -195,7 +207,9 @@ class worker():
                 if eval_flag:
                     action = ppo.policy.actor(torch.FloatTensor(network_in).to(device)).cpu().detach().numpy()  
                 else:
+                    # print('antes')
                     action = ppo.select_action(network_in, self.memory)
+                    # print('depois')
                 state, reward, done = self.env.step(action)
                 action = np.array([action])
                 
@@ -204,12 +218,13 @@ class worker():
                 self.memory.is_terminals.append(done)
                 self.reward_sum += reward
                 self.solved = self.env.solved
-                # if eval_flag:
-                    # print(self.time_step)
+                # print(self.time_step)
                 if done:
                     break
             if (self.time_step > self.size and done) or eval_flag:
-                break
+                if not eval_flag:
+                    self.memory.convert_memory()
+                return self.memory, self.reward_sum, self.solved, self.time_step
             
 
 def evaluate(env, agent, plotter, eval_steps=10):
@@ -217,21 +232,22 @@ def evaluate(env, agent, plotter, eval_steps=10):
     rewards = 0
     time_steps = 0
     for i in range(int(eval_steps/N_WORKERS)):
-        thrd_list = []
-        for i in range(N_WORKERS):
-            thrd_list.append(threading.Thread(target = w_list[i].work, args = (True, )))
-            thrd_list[i].start()
         
-        for thread, worker in zip(thrd_list, w_list):
-            thread.join()
-            rewards += worker.reward_sum
-            n_solved += worker.solved
-            time_steps += worker.time_step
+        thrd_list = []             
+        for i in range(N_WORKERS):
+            thrd_list.append(p.apply_async(w_list[i].work, (True, )))
+                
+        for thread, worker in zip(thrd_list, w_list):    
+            _, worker_reward_sum, worker_solved, worker_time_step, = thread.get()
+            rewards += worker_reward_sum
+            n_solved += worker_solved
+            time_steps += worker_time_step
             
     time_mean = time_steps/eval_steps
     solved_mean = n_solved/eval_steps        
     reward_mean = rewards/eval_steps
     # plotter.plot()
+    
     return reward_mean, time_mean, solved_mean
     
 ## HYPERPARAMETERS - CHANGE IF NECESSARY ##
@@ -241,7 +257,7 @@ action_std = 0.1
 update_timestep = 5000
 K_epochs = 10
 T = 5
-N_WORKERS = 5
+N_WORKERS = 2
 
 ## HYPERPAREMETERS - PROBABLY NOT NECESSARY TO CHANGE ##
 action_dim = 4
@@ -297,27 +313,30 @@ w_list = []
 env_list = []
 thrd_list = []
 for i in range(N_WORKERS):
-    w_list.append(worker(int(update_timestep/N_WORKERS)))
+    w_list.append(worker_f(int(update_timestep/N_WORKERS)))
     
+p = Pool(N_WORKERS)  
+
 # training loop
 for i_episode in range(1, max_episodes+1):
     print('\rProgress: {:.2%}'.format(training_count/max_trainings), end='')
-    thrd_list = []
+    
+    thrd_list = []  
+       
     for i in range(N_WORKERS):
-        thrd_list.append(threading.Thread(target = w_list[i].work))
-        thrd_list[i].start()
-        
-    for thread, worker in zip(thrd_list, w_list):
-        thread.join()
+        thrd_list.append(p.apply_async(w_list[i].work, (False, )))
+            
+    for thread, worker in zip(thrd_list, w_list):    
+        worker_memory, _, _, _, = thread.get()
 
-        memory.states += worker.memory.states
-        memory.logprobs += worker.memory.logprobs
-        memory.rewards += worker.memory.rewards
-        memory.is_terminals += worker.memory.is_terminals
-        memory.values += worker.memory.values
-        memory.actions += worker.memory.actions
-        worker.memory.clear_memory()
-        
+        memory.states += worker_memory.states.tolist()
+        memory.logprobs += worker_memory.logprobs.tolist()
+        memory.rewards += worker_memory.rewards.tolist()
+        memory.is_terminals += worker_memory.is_terminals.tolist()
+        memory.values += worker_memory.values.tolist()
+        memory.actions += worker_memory.actions.tolist()
+    
+    
     memory.values.append(torch.tensor([[0]]).to(device))
     time_init = time.time()
     ppo.update(memory)
@@ -330,7 +349,7 @@ for i_episode in range(1, max_episodes+1):
 
     
     # save every x episodes
-    if i_episode % 100 == 0:
+    if i_episode % log_interval == 0:
         torch.save(ppo.policy.state_dict(), './PPO_continuous_{}.pth'.format('drone'+seed))
         torch.save(ppo.policy_old.state_dict(), './PPO_continuous_old_{}.pth'.format('drone'+seed))
         
