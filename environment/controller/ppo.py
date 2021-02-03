@@ -191,6 +191,7 @@ class worker_f():
         
     def work(self, ppo, eval_flag = False):
         self.time_step = 0
+        self.memory.clear_memory()
         while True:
             state, action = self.env.reset()
             t_since_last_plot = 0
