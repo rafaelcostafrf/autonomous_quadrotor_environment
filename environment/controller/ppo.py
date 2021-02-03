@@ -316,7 +316,8 @@ for i_episode in range(1, max_episodes+1):
         memory.is_terminals += worker.memory.is_terminals
         memory.values += worker.memory.values
         memory.actions += worker.memory.actions
-
+        worker.memory.clear_memory()
+        
     memory.values.append(torch.tensor([[0]]).to(device))
     time_init = time.time()
     ppo.update(memory)
