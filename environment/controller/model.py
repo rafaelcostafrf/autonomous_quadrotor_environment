@@ -18,10 +18,10 @@ DESCRIPTION:
 device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
 # device = torch.device('cuda')
 class ActorCritic(nn.Module):
-    def __init__(self, state_dim, action_dim, action_std):
-        h1=64*1
-        h2=64*1
-        print("Tamanho da Rede: {:d}".format(h1))
+    def __init__(self, N, state_dim, action_dim, action_std):
+        h1=N
+        h2=N
+        # print("Tamanho da Rede: {:d}".format(h1))
         super(ActorCritic, self).__init__()
         # action mean range -1 to 1
         self.actor =  nn.Sequential(

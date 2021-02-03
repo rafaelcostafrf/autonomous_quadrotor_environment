@@ -11,6 +11,18 @@ import time
 from environment.quadrotor_env import quad, plotter
 from environment.controller.dl_auxiliary import dl_in_gen
 from environment.controller.model import ActorCritic
+import threading
+
+
+
+import argparse
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('-s', action='store', dest = 'seed', help='random seed', type=int)
+parser.add_argument('-N', action='store', dest = 'size', help='NN hidden size', type=int)
+results = parser.parse_args()
+
 
 """
 MECHANICAL ENGINEERING POST-GRADUATE PROGRAM
@@ -21,11 +33,14 @@ E−MAIL: COSTA.FERNANDES@UFABC.EDU.BR
 DESCRIPTION:
     PPO deep learning training algorithm. 
 """
-random_seed = 6401
-seed = '_velocity_seed_'+str(random_seed)
+random_seed = int(results.seed)
+network_size = int(results.size)
+print('Tamanho N da Rede Neural: {:d}'.format(network_size))
+
+seed = '_velocity_seed_'+str(network_size)+'0'+str(random_seed)
 device = torch.device("cpu")
 # device = torch.device("cuda:0")
-torch.set_num_threads(16)
+# torch.set_num_threads(16)
 PROCESS_TIME = time.time()
 
 class Memory:
@@ -53,10 +68,10 @@ class PPO:
         self.eps_clip = eps_clip
         self.K_epochs = K_epochs
         
-        self.policy = ActorCritic(state_dim, action_dim, action_std).to(device)
+        self.policy = ActorCritic(network_size, state_dim, action_dim, action_std).to(device)
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=lr, betas=betas)
         
-        self.policy_old = ActorCritic(state_dim, action_dim, action_std).to(device)
+        self.policy_old = ActorCritic(network_size, state_dim, action_dim, action_std).to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
         
         try:
@@ -154,31 +169,69 @@ class PPO:
         # Copy new weights into old policy:
         self.policy_old.load_state_dict(self.policy.state_dict())
 
-
+class worker():
+    def __init__ (self, size):
+        self.env = quad(time_int_step, max_timesteps, euler=0, direct_control=1, T=T)
+        self.size = size
+        self.memory = Memory()
+        self.aux_dl = dl_in_gen(T, env.state_size, env.action_size)  
+        self.aux_dl.reset()
+        
+    def work(self, eval_flag = False):
+        self.time_step = 0
+        while True:
+            state, action = self.env.reset()
+            t_since_last_plot = 0
+            self.aux_dl.reset()
+            self.reward_sum = 0
+            for t in range(max_timesteps):        
+                # Converts the quadrotor past states and actions to neural network input
+                network_in = self.aux_dl.dl_input(state, action)        
+                
+                t_since_last_plot += 1
+                self.time_step +=1
+                
+                # Running policy_old:
+                if eval_flag:
+                    action = ppo.policy.actor(torch.FloatTensor(network_in).to(device)).cpu().detach().numpy()  
+                else:
+                    action = ppo.select_action(network_in, self.memory)
+                state, reward, done = self.env.step(action)
+                action = np.array([action])
+                
+                # Saving reward and is_terminals:
+                self.memory.rewards.append(reward)
+                self.memory.is_terminals.append(done)
+                self.reward_sum += reward
+                self.solved = self.env.solved
+                # if eval_flag:
+                    # print(self.time_step)
+                if done:
+                    break
+            if (self.time_step > self.size and done) or eval_flag:
+                break
+            
 
 def evaluate(env, agent, plotter, eval_steps=10):
     n_solved = 0
     rewards = 0
     time_steps = 0
-    for i in range(eval_steps):
-        state, action = env.reset()
-        done = False
-        while True:
-            time_steps += 1
-            network_in = aux_dl.dl_input(state, action)    
-            action = agent.policy.actor(torch.FloatTensor(network_in).to(device)).cpu().detach().numpy()  
-            state, reward, done = env.step(action)
-            action = np.array([action])
-            rewards += reward
-            if i == eval_steps-1:
-                plotter.add(np.zeros(14))
-            if done:
-                n_solved += env.solved
-                break
+    for i in range(int(eval_steps/N_WORKERS)):
+        thrd_list = []
+        for i in range(N_WORKERS):
+            thrd_list.append(threading.Thread(target = w_list[i].work, args = (True, )))
+            thrd_list[i].start()
+        
+        for thread, worker in zip(thrd_list, w_list):
+            thread.join()
+            rewards += worker.reward_sum
+            n_solved += worker.solved
+            time_steps += worker.time_step
+            
     time_mean = time_steps/eval_steps
     solved_mean = n_solved/eval_steps        
     reward_mean = rewards/eval_steps
-    plotter.plot()
+    # plotter.plot()
     return reward_mean, time_mean, solved_mean
     
 ## HYPERPARAMETERS - CHANGE IF NECESSARY ##
@@ -188,13 +241,13 @@ action_std = 0.1
 update_timestep = 5000
 K_epochs = 10
 T = 5
-
+N_WORKERS = 5
 
 ## HYPERPAREMETERS - PROBABLY NOT NECESSARY TO CHANGE ##
 action_dim = 4
 
 log_interval = 5
-eval_episodes = 50
+eval_episodes = 10
 max_episodes = 100000
 max_trainings = 2000
 time_int_step = 0.01
@@ -223,8 +276,8 @@ print(lr,betas)
 
 # logging variables
 t_since_last_plot = 0
-running_reward = 0
-avg_length = 0
+
+
 time_step = 0
 solved_avg = 0
 training_count = 0
@@ -240,48 +293,40 @@ aux_dl = dl_in_gen(T, env.state_size, env.action_size)
 aux_dl.reset()
 time_list = []
 
+w_list = []
+env_list = []
+thrd_list = []
+for i in range(N_WORKERS):
+    w_list.append(worker(int(update_timestep/N_WORKERS)))
+    
 # training loop
 for i_episode in range(1, max_episodes+1):
-    # Resets the environment
-    state, action = env.reset()
-    
-    #Prints the progress on console
-    print('\rProgress: {:.2%}'.format(training_count/max_trainings),end='\r')
-    
-    for t in range(max_timesteps):        
+    print('\rProgress: {:.2%}'.format(training_count/max_trainings), end='')
+    thrd_list = []
+    for i in range(N_WORKERS):
+        thrd_list.append(threading.Thread(target = w_list[i].work))
+        thrd_list[i].start()
         
-        # Converts the quadrotor past states and actions to neural network input
-        network_in = aux_dl.dl_input(state, action)        
-        
-        t_since_last_plot += 1
-        time_step +=1
-        
-        # Running policy_old:
-        action = ppo.select_action(network_in, memory)
-        state, reward, done = env.step(action)
-        action = np.array([action])
-        
-        # Saving reward and is_terminals:
-        memory.rewards.append(reward)
-        memory.is_terminals.append(done)
+    for thread, worker in zip(thrd_list, w_list):
+        thread.join()
 
-        # update if its time
-        if time_step > update_timestep and done:
-        # if time_step > update_timestep:
-            memory.values.append(torch.tensor([[0]]).to(device))
-            time_init = time.time()
-            ppo.update(memory)
-            time_end = time.time()-time_init
-            time_list.append(time_end)
-            memory.clear_memory()
-            time_step = 0
-            training_count += 1
-            log = True
-        running_reward += reward
-        if done:  
-            break
-        # print(time_step)
-    avg_length += t
+        memory.states += worker.memory.states
+        memory.logprobs += worker.memory.logprobs
+        memory.rewards += worker.memory.rewards
+        memory.is_terminals += worker.memory.is_terminals
+        memory.values += worker.memory.values
+        memory.actions += worker.memory.actions
+
+    memory.values.append(torch.tensor([[0]]).to(device))
+    time_init = time.time()
+    ppo.update(memory)
+    time_end = time.time()-time_init
+    time_list.append(time_end)
+    memory.clear_memory()
+    time_step = 0
+    training_count += 1
+    log = True
+
     
     # save every x episodes
     if i_episode % 100 == 0:
@@ -292,11 +337,11 @@ for i_episode in range(1, max_episodes+1):
     if training_count % log_interval == 0 and log:
         log = False
         reward_avg, time_avg, solved_avg = evaluate(env, ppo, plot, eval_episodes)
-        avg_length = int(avg_length/log_interval)
-        running_reward = int((running_reward/log_interval))
+
+
         print('\rEpisode {} \t Avg length: {} \t Avg reward: {:.2f} \t Solved: {:.2f}'.format(i_episode, time_avg, reward_avg, solved_avg))
-        running_reward = 0
-        avg_length = 0
+
+
         
         today = date.today()
         # dd/mm/YY

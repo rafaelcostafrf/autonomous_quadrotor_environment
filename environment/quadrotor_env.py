@@ -708,7 +708,7 @@ class plotter():
             self.axs[axis_place].set(ylabel=name)
         plt.xlabel('tempo (s)')
         # plt.savefig(nome+'.pgf')
-        # plt.show()
+        plt.show()
         if self.depth_plot:
             fig3d = plt.figure('3D map')
             ax = Axes3D(fig3d)
