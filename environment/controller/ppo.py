@@ -189,7 +189,7 @@ class worker_f():
         self.aux_dl = dl_in_gen(T, env.state_size, env.action_size)  
         self.aux_dl.reset()
         
-    def work(self, eval_flag = False):
+    def work(self, ppo, eval_flag = False):
         self.time_step = 0
         while True:
             state, action = self.env.reset()
@@ -235,7 +235,7 @@ def evaluate(env, agent, plotter, eval_steps=10):
         
         thrd_list = []             
         for i in range(N_WORKERS):
-            thrd_list.append(p.apply_async(w_list[i].work, (True, )))
+            thrd_list.append(p.apply_async(w_list[i].work, (ppo, True, )))
                 
         for thread, worker in zip(thrd_list, w_list):    
             _, worker_reward_sum, worker_solved, worker_time_step, = thread.get()
@@ -324,7 +324,7 @@ for i_episode in range(1, max_episodes+1):
     thrd_list = []  
        
     for i in range(N_WORKERS):
-        thrd_list.append(p.apply_async(w_list[i].work, (False, )))
+        thrd_list.append(p.apply_async(w_list[i].work, (ppo, False)))
             
     for thread, worker in zip(thrd_list, w_list):    
         worker_memory, _, _, _, = thread.get()
