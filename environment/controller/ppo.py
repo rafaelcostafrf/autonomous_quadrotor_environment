@@ -360,7 +360,7 @@ for i_episode in range(1, max_episodes+1):
         reward_avg, time_avg, solved_avg = evaluate(env, ppo, plot, eval_episodes)
 
 
-        print('\rEpisode {} \t Avg length: {} \t Avg reward: {:.2f} \t Solved: {:.2f}'.format(i_episode, time_avg, reward_avg, solved_avg))
+        print('\rEpisode {} \t Avg length: {} \t Avg reward: {:.2f} \t Solved: {:.2f} Std: {:.4f}'.format(i_episode, time_avg, reward_avg, solved_avg, ppo.policy.std.detach().cpu().numpy()))
 
 
         
