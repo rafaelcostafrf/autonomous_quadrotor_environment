@@ -80,8 +80,8 @@ TR_P = [3, 2, 1]
 # if inspect.stack()[6][1] == '/home/rafael/mestrado/quadrotor_environment/environment/controller/ppo.py':
 #     PPO_TRAINING = True
 # else:
-PPO_TRAINING = False
-# PPO_TRAINING = True
+# PPO_TRAINING = False
+PPO_TRAINING = True
 class quad():
     def __init__(self, t_step, n, euler=0, direct_control=1, T=1):        
         """"
