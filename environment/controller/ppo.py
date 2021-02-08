@@ -182,12 +182,12 @@ class PPO:
             # advantages_sp = rewards_sp - state_values
             # Finding the ratio (pi_theta / pi_theta__old):
 
-            ratios = torch.exp(logprobs.mean(axis=2) - old_logprobs_sp.mean(axis=2).detach())
+            ratios = torch.exp(logprobs.mean(axis=2) - old_logprobs_sp.mean(axis=2).detach()).flatten()
             
 
 
             # Finding Surrogate Loss:
-            # print(ratios.size(), logprobs.size(), old_logprobs_sp.size(), advantages_sp.size(), state_values.size(), rewards_sp.size())
+            print(ratios.size(), logprobs.size(), old_logprobs_sp.size(), advantages_sp.size(), state_values.size(), rewards_sp.size())
             surr1 = ratios * advantages_sp
             surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages_sp
             critic_loss = 0.5*self.MseLoss(state_values, rewards_sp)
@@ -195,7 +195,7 @@ class PPO:
             entropy_loss = - 0.006*dist_entropy.mean(axis=2).flatten()
 
             # print(critic_loss, actor_loss, entropy_loss)
-            # print(actor_loss.size(), critic_loss.size(), entropy_loss.size())
+            print(actor_loss.size(), critic_loss.size(), entropy_loss.size())
             loss = actor_loss + critic_loss + entropy_loss
             # take gradient step
             self.optimizer.zero_grad()
