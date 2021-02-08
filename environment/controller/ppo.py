@@ -38,7 +38,8 @@ E−MAIL: COSTA.FERNANDES@UFABC.EDU.BR
 DESCRIPTION:
     PPO deep learning training algorithm. 
 """
-random_seed = int(results.seed)
+max_trainings = 2000
+random_seed = int(results.seed)*max_trainings
 network_size = int(results.size)
 print('Neural Network N size: {:d}'.format(network_size))
 
@@ -212,12 +213,12 @@ class worker_f():
         self.aux_dl = dl_in_gen(T, self.env.state_size, self.env.action_size)  
         self.aux_dl.reset()
         
-    def work(self, ppo, random_seed, training_count, eval_flag = False):
-        local_random_seed = random_seed+self.n+N_WORKERS*training_count
-
-        np.random.seed(local_random_seed)
-        torch.manual_seed(local_random_seed)
-        self.env.seed(local_random_seed)
+    def work(self, ppo, random_seed, eval_flag = False):
+        local_random_seed = random_seed+self.n
+        print(local_random_seed)
+        np.random.seed(random_seed+self.n)
+        torch.manual_seed(random_seed+self.n)
+        self.env.seed(random_seed+self.n)
         
         self.time_step = 0
         self.episodes = 0
@@ -267,9 +268,10 @@ def evaluate(agent, eval_steps=10):
     time_steps = 0
     for i in range(int(eval_steps/N_WORKERS)):
         
-        thrd_list = []             
+        thrd_list = []            
+        evaluate_random_seed = random_seed+evaluate_count*eval_steps+N_WORKERS*i
         for j in range(N_WORKERS):
-            thrd_list.append(p.apply_async(w_list[j].work, (ppo, random_seed, evaluate_count*eval_steps+i, True)))
+            thrd_list.append(p.apply_async(w_list[j].work, (ppo, evaluate_random_seed, True)))
                 
         for thread, worker in zip(thrd_list, w_list):    
             _, worker_reward_sum, worker_solved, worker_time_step, _ = thread.get()
@@ -301,7 +303,7 @@ action_dim = 4
 log_interval = 5
 eval_episodes = 40
 max_episodes = 100000
-max_trainings = 2000
+
 time_int_step = 0.01
 solved_reward = 700
 eps_clip = 0.2
@@ -354,9 +356,10 @@ for i_episode in range(1, max_episodes+1):
     print('Progress: {:.2%}'.format(training_count/max_trainings), end='          \r')
     
     thrd_list = []  
-       
+    episode_random_seed = random_seed+N_WORKERS*training_count
+    
     for i in range(N_WORKERS):
-        thrd_list.append(p.apply_async(w_list[i].work, (ppo, random_seed, training_count, False)))
+        thrd_list.append(p.apply_async(w_list[i].work, (ppo, episode_random_seed, False)))
             
     for thread, worker in zip(thrd_list, w_list):    
         worker_memory, _, _, worker_i, worker_episodes = thread.get()
