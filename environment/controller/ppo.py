@@ -38,8 +38,9 @@ E−MAIL: COSTA.FERNANDES@UFABC.EDU.BR
 DESCRIPTION:
     PPO deep learning training algorithm. 
 """
+N_WORKERS = 2
 max_trainings = 2000
-random_seed = int(results.seed)*max_trainings
+random_seed = int(results.seed)*max_trainings*N_WORKERS
 network_size = int(results.size)
 print('Neural Network N size: {:d}'.format(network_size))
 
@@ -47,7 +48,8 @@ if results.id:
     un_id = results.id
 else:
     un_id = uuid.uuid4().hex
-    
+print('Seed Number: '+str(random_seed))
+print('Unique ID: '+str(un_id))    
 seed = '_'+str(network_size)+'_'+str(random_seed)+'_'+un_id
 device = torch.device("cpu")
 # device = torch.device("cuda:0")
@@ -215,7 +217,7 @@ class worker_f():
         
     def work(self, ppo, random_seed, eval_flag = False):
         local_random_seed = random_seed+self.n
-        print(local_random_seed)
+        # print(local_random_seed)
         np.random.seed(random_seed+self.n)
         torch.manual_seed(random_seed+self.n)
         self.env.seed(random_seed+self.n)
@@ -295,7 +297,7 @@ FIXED_STD = True
 update_timestep = 5000
 K_epochs = 10
 T = 5
-N_WORKERS = 2
+
 
 ## HYPERPAREMETERS - PROBABLY NOT NECESSARY TO CHANGE ##
 action_dim = 4
