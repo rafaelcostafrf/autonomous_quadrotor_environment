@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.distributions import MultivariateNormal
+from torch.distributions import MultivariateNormal, Normal
 
 """
 MECHANICAL ENGINEERING POST-GRADUATE PROGRAM
@@ -15,7 +15,7 @@ DESCRIPTION:
     hidden layers has 64 neurons
 """
 
-device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 # device = torch.device('cuda')
 class ActorCritic(nn.Module):
     def __init__(self, N, state_dim, action_dim, action_std, fixed_std):
@@ -50,20 +50,25 @@ class ActorCritic(nn.Module):
         raise NotImplementedError
     
     def act(self, state, memory):
+
         action_mean = self.actor(state)
+
         value = self.critic(state)
-        
+
         cov_mat = torch.diag(self.action_var).to(device)*self.std*self.std
         # cov_mat = torch.diag(self.action_var).to(device)*self.fixed_std*self.fixed_std
 
-        dist = MultivariateNormal(action_mean, cov_mat)
+        # dist = MultivariateNormal(action_mean, cov_mat)
+        dist = Normal(action_mean, torch.ones(4)*self.std*self.std)
+
         action = dist.sample()
+
         action_logprob = dist.log_prob(action)
-        
         memory.states.append(state.detach())
         memory.actions.append(action.detach())
         memory.logprobs.append(action_logprob.detach())  
         memory.values.append(value.detach())
+
         return action.detach()
     
     def evaluate(self, state, action):   
@@ -71,9 +76,10 @@ class ActorCritic(nn.Module):
         
         action_var = self.action_var.expand_as(action_mean)*self.std*self.std
         # action_var = self.action_var.expand_as(action_mean)*self.fixed_std*self.fixed_std
-        cov_mat = torch.diag_embed(action_var).to(device)
+        # cov_mat = torch.diag_embed(action_var).to(device)
         
-        dist = MultivariateNormal(action_mean, cov_mat)
+        # dist = MultivariateNormal(action_mean, cov_mat)
+        dist = Normal(action_mean, torch.ones(4)*self.std*self.std)
         
         action_logprobs = dist.log_prob(action)
         dist_entropy = dist.entropy()

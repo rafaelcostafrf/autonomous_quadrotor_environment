@@ -154,7 +154,7 @@ class PPO:
         # convert list to tensor
         old_states = torch.Tensor(memory.states).type(torch.double).to(device).detach()
         old_actions = torch.Tensor(memory.actions).type(torch.double).to(device).detach()
-        old_logprobs = torch.Tensor(memory.logprobs).type(torch.double).to(device).detach().flatten()
+        old_logprobs = torch.Tensor(memory.logprobs).type(torch.double).to(device).detach()
         old_values = torch.Tensor(memory.values).type(torch.double).to(device).detach()
         rewards = np.array(memory.rewards)
         # advantages = rewards - old_values.detach()[0] 
@@ -181,7 +181,9 @@ class PPO:
             # print(old_states_sp.type(), old_actions_sp.type(), old_logprobs_sp.type(), advantages_sp.type(), rewards_sp.type())
             # advantages_sp = rewards_sp - state_values
             # Finding the ratio (pi_theta / pi_theta__old):
-            ratios = torch.exp(logprobs.flatten() - old_logprobs_sp.detach().flatten())
+
+            ratios = torch.exp(logprobs.mean(axis=2) - old_logprobs_sp.mean(axis=2).detach())
+            
 
 
             # Finding Surrogate Loss:
@@ -190,7 +192,7 @@ class PPO:
             surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages_sp
             critic_loss = 0.5*self.MseLoss(state_values, rewards_sp)
             actor_loss = -torch.min(surr1, surr2)
-            entropy_loss = - 0.006*dist_entropy.flatten()
+            entropy_loss = - 0.006*dist_entropy.mean(axis=2).flatten()
 
             # print(critic_loss, actor_loss, entropy_loss)
             # print(actor_loss.size(), critic_loss.size(), entropy_loss.size())
