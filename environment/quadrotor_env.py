@@ -66,6 +66,10 @@ A = np.array([[A_X,A_Y,A_Z]]).T
 
 
 ## REWARD PARAMETERS ##
+SOLVED_REWARD = 20
+BROKEN_REWARD = -20
+SHAPING_WEIGHT = 5
+SHAPING_INTERNAL_WEIGHTS = [15, 4, 1]
 
 # CONTROL REWARD PENALITIES #
 P_C = 0.003
@@ -76,14 +80,10 @@ TR = [0.005, 0.01, 0.1]
 TR_P = [3, 2, 1]
 
 
-## CHECKING IF THE ENV IS BEING CALLED FOR TRAINING OR EVALUATION
-# if inspect.stack()[6][1] == '/home/rafael/mestrado/quadrotor_environment/environment/controller/ppo.py':
-#     PPO_TRAINING = True
-# else:
-# PPO_TRAINING = False
-PPO_TRAINING = True
+
+
 class quad():
-    def __init__(self, t_step, n, euler=0, direct_control=1, T=1):        
+    def __init__(self, t_step, n, training = True, euler=0, direct_control=1, T=1):        
         """"
         inputs:
             t_step: integration time step 
@@ -95,6 +95,15 @@ class quad():
                 debug: If on, prints a readable reward funcion, step by step, for a simple reward weight debugging.
         
         """
+        
+        if training:
+            self.ppo_training = True
+        else:
+            self.ppo_training = False
+        ev_cd = 'Training' if self.ppo_training else 'Eval'
+        print('Environment Condition: '+ev_cd)
+        
+        
         self.mass = M
         self.gravity = G
         
@@ -106,8 +115,9 @@ class quad():
                                  BB_VEL,
                                  BB_ANG, BB_ANG, 3/4*np.pi,
                                  BB_VEL*2, BB_VEL*2, BB_VEL*2])       #Bounding Box Conditions Array
-        if not PPO_TRAINING:
+        if not self.ppo_training:
             self.bb_cond = self.bb_cond*1
+            
         #Quadrotor states dimension
         self.state_size = 13       
         
@@ -143,6 +153,8 @@ class quad():
         self.d_xx = np.linspace(0,D,10)
         self.d_yy = np.linspace(0,D,10)
         self.d_zz = np.linspace(0,D,10)
+        
+
         
     def seed(self, seed):
         """"
@@ -445,46 +457,50 @@ class quad():
         action = self.action
 
         
-        shaping = -1*(norm(velocity/BB_VEL)+
-                        norm(psi/4)+
-                        0.3*norm(euler_angles[0:2]/BB_ANG))
+        shaping = -SHAPING_WEIGHT/np.sum(SHAPING_INTERNAL_WEIGHTS)*(SHAPING_INTERNAL_WEIGHTS[0]*norm(velocity/BB_VEL)+
+                        SHAPING_INTERNAL_WEIGHTS[1]*norm(psi/4)+
+                        SHAPING_INTERNAL_WEIGHTS[2]*norm(euler_angles[0:2]/BB_ANG))
+        
         
         #CASCADING REWARDS
         r_state = np.concatenate((velocity, [psi]))  
+
         for TR_i, TR_Pi in zip(TR, TR_P): 
             if norm(r_state) < norm(np.ones(len(r_state))*TR_i):
                 shaping += TR_Pi
-                if norm(euler_angles) < norm(np.ones(3)*TR_i*4):
+                if norm(euler_angles[0:2]) < norm(np.ones(2)*TR_i*4):
                     shaping += TR_Pi
                 break
+        
         
         if self.prev_shaping is not None:
             self.reward = shaping - self.prev_shaping
         self.prev_shaping = shaping
         
         #ABSOLUTE CONTROL PENALTY
-        abs_control = -np.sum(np.square(action - self.zero_control)) * P_C
+        
 
         ## TOTAL REWARD SHAPING ##
+        abs_control = -np.sum(np.square(action - self.zero_control)) * P_C
         self.reward += + abs_control 
         
         #SOLUTION ACHIEVED?
-        target_state = 9*(TR[0]**2)
-        current_state = np.sum(np.square(np.concatenate((velocity, euler_angles, body_ang_vel))))      
+        self.target_state = 9*(TR[0]**2)
+        self.current_state = np.sum(np.square(np.concatenate((velocity, euler_angles, body_ang_vel))))      
         
         
         
-        if current_state < target_state:
-            self.reward = +10
+        if self.current_state < self.target_state:
+            self.reward += SOLVED_REWARD
             self.solved = 1
-            if PPO_TRAINING:
+            if self.ppo_training:
                 self.done = True              
         elif self.i >= self.n:
             self.reward = self.reward
             self.solved = 0   
             self.done=True
         elif self.done:
-            self.reward = -2
+            self.reward += BROKEN_REWARD
             self.solved = 0            
          
     def control_effort(self):

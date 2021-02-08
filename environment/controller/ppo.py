@@ -12,6 +12,10 @@ from environment.quadrotor_env import quad, plotter
 from environment.controller.dl_auxiliary import dl_in_gen
 from environment.controller.model import ActorCritic
 from multiprocessing import Process, Queue, Pool
+import pandas as pd
+import uuid
+
+
 
 
 
@@ -21,6 +25,7 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('-s', action='store', dest = 'seed', help='random seed', type=int)
 parser.add_argument('-N', action='store', dest = 'size', help='NN hidden size', type=int)
+parser.add_argument('-id', action='store', dest = 'id', help = 'Unique ID', type = str, default=None)
 results = parser.parse_args()
 
 
@@ -35,13 +40,27 @@ DESCRIPTION:
 """
 random_seed = int(results.seed)
 network_size = int(results.size)
-print('Tamanho N da Rede Neural: {:d}'.format(network_size))
+print('Neural Network N size: {:d}'.format(network_size))
 
-seed = '_velocity_seed_'+str(network_size)+'0'+str(random_seed)
+if results.id:
+    un_id = results.id
+else:
+    un_id = uuid.uuid4().hex
+    
+seed = '_'+str(network_size)+'_'+str(random_seed)+'_'+un_id
 device = torch.device("cpu")
 # device = torch.device("cuda:0")
 # torch.set_num_threads(16)
 PROCESS_TIME = time.time()
+
+
+header = ['LR', 'Ep_timesteps', 'Up_timesteps', 'Batch_Epochs', 'Eval Episodes', 'Action_std', 'Date', 'Hour', 'N_Training', 'T_seconds', 'Avg_reward', 'Solved Avg', 'Avg_length', 'Total Episodes', 'Total Timesteps']
+try:
+    dataframe = pd.read_csv('./training_log/log'+seed+'.csv')
+    print('Dataframe from seed {:d} Loaded'.format(random_seed))
+except:    
+    print('Could not load dataframe, created a new one.')
+    dataframe = pd.DataFrame(columns=header)
 
 class Memory:
     def __init__(self):
@@ -76,15 +95,15 @@ class PPO:
         self.eps_clip = eps_clip
         self.K_epochs = K_epochs
         
-        self.policy = ActorCritic(network_size, state_dim, action_dim, action_std).to(device)
+        self.policy = ActorCritic(network_size, state_dim, action_dim, action_std, FIXED_STD).double().to(device)
         self.optimizer = torch.optim.Adam(self.policy.parameters(), lr=lr, betas=betas)
         
-        self.policy_old = ActorCritic(network_size, state_dim, action_dim, action_std).to(device)
+        self.policy_old = ActorCritic(network_size, state_dim, action_dim, action_std, FIXED_STD).double().to(device)
         self.policy_old.load_state_dict(self.policy.state_dict())
         
         try:
-            self.policy.load_state_dict(torch.load('./PPO_continuous_drone'+seed+'.pth',map_location=device))
-            self.policy_old.load_state_dict(torch.load('./PPO_continuous_old_drone'+seed+'.pth',map_location=device))
+            self.policy.load_state_dict(torch.load('./untrained_networks/nn'+seed+'.pth',map_location=device))
+            self.policy_old.load_state_dict(torch.load('./untrained_networks/nn_old'+seed+'.pth',map_location=device))
             print('Saved models loaded')
         except:
             print('New models generated')
@@ -93,7 +112,7 @@ class PPO:
         self.MseLoss = nn.MSELoss()
     
     def select_action(self, state, memory):
-        state = torch.FloatTensor(state.reshape(1, -1)).to(device)
+        state = torch.DoubleTensor(state.reshape(1, -1)).to(device)
         return self.policy_old.act(state, memory).cpu().data.numpy().flatten()
     
     
@@ -130,16 +149,16 @@ class PPO:
         # rewards = (rewards - rewards.mean()) / (rewards.std() + 1e-5)
         
         # convert list to tensor
-        old_states = torch.Tensor(memory.states).type(torch.float).to(device).detach()
-        old_actions = torch.Tensor(memory.actions).type(torch.float).to(device).detach()
-        old_logprobs = torch.Tensor(memory.logprobs).type(torch.float).to(device).detach().flatten()
-        old_values = torch.Tensor(memory.values).type(torch.float).to(device).detach()
-        rewards = np.array(memory.rewards).astype(float)
+        old_states = torch.Tensor(memory.states).type(torch.double).to(device).detach()
+        old_actions = torch.Tensor(memory.actions).type(torch.double).to(device).detach()
+        old_logprobs = torch.Tensor(memory.logprobs).type(torch.double).to(device).detach().flatten()
+        old_values = torch.Tensor(memory.values).type(torch.double).to(device).detach()
+        rewards = np.array(memory.rewards)
         # advantages = rewards - old_values.detach()[0] 
         
         rewards, advantages = self.get_advantages(old_values, np.logical_not(memory.is_terminals), rewards)
-        advantages = torch.tensor(advantages).type(torch.float).to(device)
-        rewards = torch.tensor(rewards).type(torch.float).to(device)
+        advantages = torch.tensor(advantages).type(torch.double).to(device)
+        rewards = torch.tensor(rewards).type(torch.double).to(device)
         # advantages = (advantages - advantages.mean())/(advantages.std()+1e-5)
         # Optimize policy for K epochs:
         # print(memory.rewards, rewards, memory.is_terminals)
@@ -168,7 +187,7 @@ class PPO:
             surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages_sp
             critic_loss = 0.5*self.MseLoss(state_values, rewards_sp)
             actor_loss = -torch.min(surr1, surr2)
-            entropy_loss = - 0.01*dist_entropy.flatten()
+            entropy_loss = - 0.006*dist_entropy.flatten()
 
             # print(critic_loss, actor_loss, entropy_loss)
             # print(actor_loss.size(), critic_loss.size(), entropy_loss.size())
@@ -182,20 +201,31 @@ class PPO:
         self.policy_old.load_state_dict(self.policy.state_dict())
 
 class worker_f():
-    def __init__ (self, size):
-        self.env = quad(time_int_step, max_timesteps, euler=0, direct_control=1, T=T)
+    def __init__ (self, size, n):
+        
+        self.env = quad(time_int_step, max_timesteps, training=True, euler=0, direct_control=1, T=T)
+        self.n = n
+        
+        
         self.size = size
         self.memory = Memory()
-        self.aux_dl = dl_in_gen(T, env.state_size, env.action_size)  
+        self.aux_dl = dl_in_gen(T, self.env.state_size, self.env.action_size)  
         self.aux_dl.reset()
         
-    def work(self, ppo, eval_flag = False):
+    def work(self, ppo, random_seed, training_count, eval_flag = False):
+        local_random_seed = random_seed+self.n+N_WORKERS*training_count
+
+        np.random.seed(local_random_seed)
+        torch.manual_seed(local_random_seed)
+        self.env.seed(local_random_seed)
+        
         self.time_step = 0
+        self.episodes = 0
         self.memory.clear_memory()
         while True:
             state, action = self.env.reset()
             t_since_last_plot = 0
-            self.aux_dl.reset()
+            # self.aux_dl.reset()
             self.reward_sum = 0
             for t in range(max_timesteps):        
                 # Converts the quadrotor past states and actions to neural network input
@@ -206,7 +236,7 @@ class worker_f():
                 
                 # Running policy_old:
                 if eval_flag:
-                    action = ppo.policy.actor(torch.FloatTensor(network_in).to(device)).cpu().detach().numpy()  
+                    action = ppo.policy.actor(torch.DoubleTensor(network_in).to(device)).cpu().detach().numpy()  
                 else:
                     # print('antes')
                     action = ppo.select_action(network_in, self.memory)
@@ -219,35 +249,39 @@ class worker_f():
                 self.memory.is_terminals.append(done)
                 self.reward_sum += reward
                 self.solved = self.env.solved
-                # print(self.time_step)
+
                 if done:
+                    self.episodes += 1
                     break
+                if t == max_timesteps - 1:
+                    self.episodes += 1
             if (self.time_step > self.size and done) or eval_flag:
                 if not eval_flag:
                     self.memory.convert_memory()
-                return self.memory, self.reward_sum, self.solved, self.time_step
+                return self.memory, self.reward_sum, self.solved, self.time_step, self.episodes
             
 
-def evaluate(env, agent, plotter, eval_steps=10):
+def evaluate(agent, eval_steps=10):
     n_solved = 0
     rewards = 0
     time_steps = 0
     for i in range(int(eval_steps/N_WORKERS)):
         
         thrd_list = []             
-        for i in range(N_WORKERS):
-            thrd_list.append(p.apply_async(w_list[i].work, (ppo, True, )))
+        for j in range(N_WORKERS):
+            thrd_list.append(p.apply_async(w_list[j].work, (ppo, random_seed, evaluate_count*eval_steps+i, True)))
                 
         for thread, worker in zip(thrd_list, w_list):    
-            _, worker_reward_sum, worker_solved, worker_time_step, = thread.get()
+            _, worker_reward_sum, worker_solved, worker_time_step, _ = thread.get()
             rewards += worker_reward_sum
             n_solved += worker_solved
             time_steps += worker_time_step
             
-    time_mean = time_steps/eval_steps
-    solved_mean = n_solved/eval_steps        
-    reward_mean = rewards/eval_steps
-    # plotter.plot()
+    total_ep = int(eval_steps/N_WORKERS)*N_WORKERS
+    time_mean = time_steps/total_ep
+    solved_mean = n_solved/total_ep
+    reward_mean = rewards/total_ep
+
     
     return reward_mean, time_mean, solved_mean
     
@@ -255,6 +289,7 @@ def evaluate(env, agent, plotter, eval_steps=10):
 lr = 0.0005
 max_timesteps = 1000
 action_std = 0.1
+FIXED_STD = True
 update_timestep = 5000
 K_epochs = 10
 T = 5
@@ -264,7 +299,7 @@ N_WORKERS = 2
 action_dim = 4
 
 log_interval = 5
-eval_episodes = 10
+eval_episodes = 40
 max_episodes = 100000
 max_trainings = 2000
 time_int_step = 0.01
@@ -275,16 +310,12 @@ betas = (0.9, 0.999)
 DEBUG = 0
 
 # creating environment
-env = quad(time_int_step, max_timesteps, euler=0, direct_control=1, T=T)
 state_dim = 15*T
-plot = plotter(env, True, False)
 
-#creating reward logger
+
 if random_seed:
     print("Random Seed: {}".format(random_seed))
-    torch.manual_seed(random_seed)
-    env.seed(random_seed)
-    np.random.seed(random_seed)
+
 
 # creating ppo trainer
 memory = Memory()
@@ -298,48 +329,52 @@ t_since_last_plot = 0
 time_step = 0
 solved_avg = 0
 training_count = 0
+evaluate_count = 0
+
+total_episodes = 0 
+total_timesteps = 0
 log = False
 eval_on_mean = True
 
-file_logger = open('eval_reward_log'+seed+'.txt', 'a')
-file_logger.write('Gamma: ' + str(gamma)+'\t'+'Betas: ' + str(betas)+'\t'+'LR: '+str(lr)+'\t'+'Ep. Timstp: ' + str(max_timesteps)+'\t'+'Up. Timestep: ' + str(update_timestep)+'\t'+'Batch Epochs: ' + str(K_epochs)+'/t'+'Action Std: ' + str(action_std)+'\n')
-file_logger.close()
+
         
 # auxiliar deep learning input generator
-aux_dl = dl_in_gen(T, env.state_size, env.action_size)  
-aux_dl.reset()
 time_list = []
 
 w_list = []
 env_list = []
 thrd_list = []
 for i in range(N_WORKERS):
-    w_list.append(worker_f(int(update_timestep/N_WORKERS)))
-    
+    w_list.append(worker_f(int(update_timestep/N_WORKERS), i))
+
 p = Pool(N_WORKERS)  
 
 # training loop
 for i_episode in range(1, max_episodes+1):
-    print('\rProgress: {:.2%}'.format(training_count/max_trainings), end='')
+    print('Progress: {:.2%}'.format(training_count/max_trainings), end='          \r')
     
     thrd_list = []  
        
     for i in range(N_WORKERS):
-        thrd_list.append(p.apply_async(w_list[i].work, (ppo, False)))
+        thrd_list.append(p.apply_async(w_list[i].work, (ppo, random_seed, training_count, False)))
             
     for thread, worker in zip(thrd_list, w_list):    
-        worker_memory, _, _, _, = thread.get()
+        worker_memory, _, _, worker_i, worker_episodes = thread.get()
 
+        total_episodes += worker_episodes 
+        total_timesteps += worker_i 
+        
         memory.states += worker_memory.states.tolist()
         memory.logprobs += worker_memory.logprobs.tolist()
         memory.rewards += worker_memory.rewards.tolist()
         memory.is_terminals += worker_memory.is_terminals.tolist()
         memory.values += worker_memory.values.tolist()
         memory.actions += worker_memory.actions.tolist()
-    
-    
+        
+        
     memory.values.append(torch.tensor([[0]]).to(device))
     time_init = time.time()
+
     ppo.update(memory)
     time_end = time.time()-time_init
     time_list.append(time_end)
@@ -351,28 +386,28 @@ for i_episode in range(1, max_episodes+1):
     
     # save every x episodes
     if i_episode % log_interval == 0:
-        torch.save(ppo.policy.state_dict(), './PPO_continuous_{}.pth'.format('drone'+seed))
-        torch.save(ppo.policy_old.state_dict(), './PPO_continuous_old_{}.pth'.format('drone'+seed))
+        torch.save(ppo.policy.state_dict(), './untrained_networks/nn{}.pth'.format(seed))
+        torch.save(ppo.policy_old.state_dict(), './untrained_networks/nn_old{}.pth'.format(seed))
         
     # logging
     if training_count % log_interval == 0 and log:
         log = False
-        reward_avg, time_avg, solved_avg = evaluate(env, ppo, plot, eval_episodes)
+        reward_avg, time_avg, solved_avg = evaluate(ppo, eval_episodes)
+        evaluate_count += 1
 
+        print('Episode {:6d} Avg length: {:8.2f} Avg reward: {:8.2f} Solved: {:7.2%} Std: {:8.4f}'.format(i_episode, time_avg, reward_avg, solved_avg, ppo.policy.std.detach().cpu().numpy()))
 
-        print('\rEpisode {} \t Avg length: {} \t Avg reward: {:.2f} \t Solved: {:.2f} Std: {:.4f}'.format(i_episode, time_avg, reward_avg, solved_avg, ppo.policy.std.detach().cpu().numpy()))
-
-
-        
         today = date.today()
         # dd/mm/YY
         d1 = today.strftime("%d/%m/%Y")
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
         
-        file_logger = open('eval_reward_log'+seed+'.txt', 'a')
-        file_logger.write(d1+'\t'+current_time+'\t'+str(training_count)+'\t'+str(i_episode)+'\t'+str(time.time()-PROCESS_TIME)+'\t'+str(reward_avg)+'\t'+str(solved_avg)+'\t'+str(time_avg)+'\n')
-        file_logger.close()
+        file_logger = pd.Series([lr, max_timesteps, update_timestep, K_epochs, eval_episodes, ppo.policy.std.detach().cpu().numpy(), d1, current_time, training_count, time.time()-PROCESS_TIME, reward_avg, solved_avg, time_avg, total_episodes, total_timesteps], index = header)
+        dataframe = dataframe.append(file_logger, ignore_index = True)
+        with open('./training_log/log'+seed+'.csv', 'w') as f:
+            dataframe.to_csv(f, index=False)
+        
         # stop training if avg_reward > solved_reward
         if training_count >= max_trainings:
             # reward_avg, time_avg, solved_avg = evaluate(env, ppo, plot, 200)
@@ -380,7 +415,7 @@ for i_episode in range(1, max_episodes+1):
             # if solved_avg > 0.95 and reward_avg>solved_reward:
                 print(np.average(np.array(time_list)))
                 print("########## Solved! ##########")
-                torch.save(ppo.policy.state_dict(), './PPO_continuous_solved_{}.pth'.format('drone'+seed))
-                torch.save(ppo.policy_old.state_dict(), './PPO_continuous_old_solved_{}.pth'.format('drone'+seed))
+                torch.save(ppo.policy.state_dict(), './solved/nn_solved{}.pth'.format(seed))
+                torch.save(ppo.policy_old.state_dict(), './solved/nn_old_solved{}.pth'.format(seed))
                 break
                 

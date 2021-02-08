@@ -18,7 +18,7 @@ DESCRIPTION:
 device = torch.device("cpu" if torch.cuda.is_available() else "cpu")
 # device = torch.device('cuda')
 class ActorCritic(nn.Module):
-    def __init__(self, N, state_dim, action_dim, action_std):
+    def __init__(self, N, state_dim, action_dim, action_std, fixed_std):
         h1=N
         h2=N
         # print("Tamanho da Rede: {:d}".format(h1))
@@ -40,8 +40,11 @@ class ActorCritic(nn.Module):
                 nn.Tanh(),
                 nn.Linear(h2, 1)
                 ).to(device)
-        self.std = torch.nn.Parameter(torch.tensor(action_std))
-        self.action_var = torch.full((action_dim,), 1, device = device, dtype=torch.float)
+        self.action_var = torch.full((action_dim,), 1, device = device, dtype=torch.double)
+        if fixed_std:
+            self.std = torch.nn.Parameter(torch.tensor(action_std), requires_grad = False)
+        else:
+            self.std = torch.nn.Parameter(torch.tensor(action_std), requires_grad = True)
         
     def forward(self):
         raise NotImplementedError
@@ -51,6 +54,7 @@ class ActorCritic(nn.Module):
         value = self.critic(state)
         
         cov_mat = torch.diag(self.action_var).to(device)*self.std*self.std
+        # cov_mat = torch.diag(self.action_var).to(device)*self.fixed_std*self.fixed_std
 
         dist = MultivariateNormal(action_mean, cov_mat)
         action = dist.sample()
@@ -66,6 +70,7 @@ class ActorCritic(nn.Module):
         action_mean = self.actor(state)
         
         action_var = self.action_var.expand_as(action_mean)*self.std*self.std
+        # action_var = self.action_var.expand_as(action_mean)*self.fixed_std*self.fixed_std
         cov_mat = torch.diag_embed(action_var).to(device)
         
         dist = MultivariateNormal(action_mean, cov_mat)
