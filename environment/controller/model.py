@@ -59,7 +59,7 @@ class ActorCritic(nn.Module):
         # cov_mat = torch.diag(self.action_var).to(device)*self.fixed_std*self.fixed_std
 
         # dist = MultivariateNormal(action_mean, cov_mat)
-        dist = Normal(action_mean, torch.ones(4)*self.std*self.std)
+        dist = Normal(action_mean, torch.ones(4)*self.std)
 
         action = dist.sample()
 
@@ -79,7 +79,7 @@ class ActorCritic(nn.Module):
         # cov_mat = torch.diag_embed(action_var).to(device)
         
         # dist = MultivariateNormal(action_mean, cov_mat)
-        dist = Normal(action_mean, torch.ones(4)*self.std*self.std)
+        dist = Normal(action_mean, torch.ones(4)*self.std)
         
         action_logprobs = dist.log_prob(action)
         dist_entropy = dist.entropy()
