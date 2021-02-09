@@ -57,7 +57,7 @@ device = torch.device("cpu")
 PROCESS_TIME = time.time()
 
 
-header = ['LR', 'Ep_timesteps', 'Up_timesteps', 'Batch_Epochs', 'Eval Episodes', 'Action_std', 'Date', 'Hour', 'N_Training', 'T_seconds', 'Avg_reward', 'Solved Avg', 'Avg_length', 'Total Episodes', 'Total Timesteps']
+header = ['LR', 'Ep_timesteps', 'Up_timesteps', 'Batch_Epochs', 'Eval Episodes', 'Action_std', 'Date', 'Hour', 'N_Training', 'T_seconds', 'Avg_reward', 'Solved Avg', 'Avg_length', 'Total Episodes', 'Total Timesteps', 'ETF']
 try:
     dataframe = pd.read_csv('./training_log/log'+seed+'.csv')
     print('Dataframe from seed {:d} Loaded'.format(random_seed))
@@ -182,7 +182,7 @@ class PPO:
             # advantages_sp = rewards_sp - state_values
             # Finding the ratio (pi_theta / pi_theta__old):
 
-            ratios = torch.exp(logprobs.mean(axis=2).flatten() - old_logprobs_sp.mean(axis=2).detach().flatten())
+            ratios = torch.exp(logprobs.sum(axis=2).flatten() - old_logprobs_sp.sum(axis=2).detach().flatten())
             
 
 
@@ -192,7 +192,7 @@ class PPO:
             surr2 = torch.clamp(ratios, 1-self.eps_clip, 1+self.eps_clip) * advantages_sp
             critic_loss = 0.5*self.MseLoss(state_values, rewards_sp)
             actor_loss = -torch.min(surr1, surr2)
-            entropy_loss = - 0.006*dist_entropy.mean(axis=2).flatten()
+            entropy_loss = - 0.006*dist_entropy.sum(axis=2).flatten()
 
             # print(critic_loss, actor_loss, entropy_loss)
             # print(actor_loss.size(), critic_loss.size(), entropy_loss.size())
@@ -410,7 +410,7 @@ for i_episode in range(1, max_episodes+1):
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
         
-        file_logger = pd.Series([lr, max_timesteps, update_timestep, K_epochs, eval_episodes, ppo.policy.std.detach().cpu().numpy(), d1, current_time, training_count, time.time()-PROCESS_TIME, reward_avg, solved_avg, time_avg, total_episodes, total_timesteps], index = header)
+        file_logger = pd.Series([lr, max_timesteps, update_timestep, K_epochs, eval_episodes, ppo.policy.std.detach().cpu().numpy(), d1, current_time, training_count, time.time()-PROCESS_TIME, reward_avg, solved_avg, time_avg, total_episodes, total_timesteps, ((time.time()-PROCESS_TIME)/training_count*max_trainings-(time.time()-PROCESS_TIME))/3600], index = header)
         dataframe = dataframe.append(file_logger, ignore_index = True)
         with open('./training_log/log'+seed+'.csv', 'w') as f:
             dataframe.to_csv(f, index=False)
