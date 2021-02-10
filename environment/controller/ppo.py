@@ -410,7 +410,7 @@ for i_episode in range(1, max_episodes+1):
         now = datetime.now()
         current_time = now.strftime("%H:%M:%S")
         
-        file_logger = pd.Series([lr, max_timesteps, update_timestep, K_epochs, eval_episodes, ppo.policy.std.detach().cpu().numpy(), d1, current_time, training_count, time.time()-PROCESS_TIME, reward_avg, solved_avg, time_avg, total_episodes, total_timesteps, ((time.time()-PROCESS_TIME)/training_count*max_trainings-(time.time()-PROCESS_TIME))/3600], index = header)
+        file_logger = pd.Series([lr, max_timesteps, update_timestep, K_epochs, eval_episodes, ppo.policy.std.detach().cpu().numpy(), d1, current_time, training_count, (time.time()-PROCESS_TIME)/3600, reward_avg, solved_avg, time_avg, total_episodes, total_timesteps, ((time.time()-PROCESS_TIME)/training_count*max_trainings-(time.time()-PROCESS_TIME))/3600], index = header)
         dataframe = dataframe.append(file_logger, ignore_index = True)
         with open('./training_log/log'+seed+'.csv', 'w') as f:
             dataframe.to_csv(f, index=False)

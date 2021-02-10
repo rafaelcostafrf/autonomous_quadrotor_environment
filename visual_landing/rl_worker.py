@@ -56,7 +56,7 @@ AUX_DL = dl_in_gen(T, 13, 4)
 state_dim = AUX_DL.deep_learning_in_size
 CRTL_POLICY = ActorCritic_old(state_dim, action_dim=4, action_std=0)
 try:
-    CRTL_POLICY.load_state_dict(torch.load('./environment/controller/PPO_continuous_drone_velocity_solved.pth'))
+    CRTL_POLICY.load_state_dict(torch.load('./visual_landing/controller/PPO_continuous_drone_velocity_solved.pth'))
     print('Saved Control policy loaded')
 except:
     print('Could not load Control policy')

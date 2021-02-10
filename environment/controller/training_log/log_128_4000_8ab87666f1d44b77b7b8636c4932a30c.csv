@@ -1,0 +1,2 @@
+LR,Ep_timesteps,Up_timesteps,Batch_Epochs,Eval Episodes,Action_std,Date,Hour,N_Training,T_seconds,Avg_reward,Solved Avg,Avg_length,Total Episodes,Total Timesteps,ETF
+0.0005,1000,5000,10,40,0.10000000149011612,08/02/2021,15:08:43,5,35.29344129562378,-21.51339561921352,0.0,84.2,330,25394,196.06487410419518
