@@ -6,7 +6,7 @@ win-size 600 600
 
 show-frame-rate-meter True
 
-default-near 0.01
+default-near 0.03
 default-far 300
 texture-anisotropic-degree 4
 

@@ -3,8 +3,11 @@ sys.path.append('/home/rafaelcostaf/mestrado/quadrotor_environment/')
 from datetime import datetime, date
 
 import torch
+
+
 import torch.nn as nn
 from torch.distributions import MultivariateNormal
+
 import numpy as np
 import time
 
@@ -39,7 +42,7 @@ DESCRIPTION:
     PPO deep learning training algorithm. 
 """
 N_WORKERS = 2
-max_trainings = 2000
+max_trainings = 100
 random_seed = int(results.seed)*max_trainings*N_WORKERS
 network_size = int(results.size)
 print('Neural Network N size: {:d}'.format(network_size))
@@ -51,7 +54,7 @@ else:
 print('Seed Number: '+str(random_seed))
 print('Unique ID: '+str(un_id))    
 seed = '_'+str(network_size)+'_'+str(random_seed)+'_'+un_id
-device = torch.device("cpu")
+device = torch.device('cpu')
 # device = torch.device("cuda:0")
 # torch.set_num_threads(16)
 PROCESS_TIME = time.time()
@@ -357,7 +360,7 @@ p = Pool(N_WORKERS)
 
 # training loop
 for i_episode in range(1, max_episodes+1):
-    print('Progress: {:.2%}'.format(training_count/max_trainings), end='          \r')
+    print('\rProgress: {:.2%}'.format(training_count/max_trainings), end='          \r')
     
     thrd_list = []  
     episode_random_seed = random_seed+N_WORKERS*training_count

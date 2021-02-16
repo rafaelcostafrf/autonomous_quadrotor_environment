@@ -61,6 +61,7 @@ degrau = True
 ramp = False
 random = False
 
+
 if random:
     state, action = env.reset()
     env_plot.add(INT_STATE)

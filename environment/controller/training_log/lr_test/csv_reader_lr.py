@@ -14,21 +14,26 @@ matplotlib.rcParams.update({
         '\DeclareUnicodeCharacter{2212}{-}']
 })
 
+
 header = ['Total Time', 'Solved Avg', 'Reward Avg', 'Sim Time', 'Total Episodes', 'Sim Time/Ep']
 avg_df = pd.DataFrame(columns = header)
-neural_sizes = [16, 32, 64, 128, 256]
-fig, axs = plt.subplots(len(neural_sizes), figsize = (7, 7*1.414))
+name = 'log_128'
+LR = [0.001, 0.0005, 1e-05]
+DF_LIST = [[], [], []]       
+df_array = []
 
-for k, N in enumerate(neural_sizes):
-    df_array = []
-    if N < 128:
-        name = 'log_0'+str(N)
-    else:
-        name = 'log_'+str(N)
-        
-    for file in glob.glob(name+'*.csv'):
-        df_array.append(pd.read_csv(file))
+fig, axs = plt.subplots(1, figsize = (7, 5))
+
+for file in glob.glob(name+'*.csv'):
+    df_array.append(pd.read_csv(file))
+
+for df in df_array:
+    lr_df = df['LR'].to_numpy()[0]
+    for i, lr in enumerate(LR):
+        if lr_df == lr:
+            DF_LIST[i].append(df)
     
+for df_array, N in zip(DF_LIST, LR):    
     reward_array = np.zeros([400, 4])
     time_array = np.zeros([400, 4])
     solved_array = np.zeros([400, 4])
@@ -56,14 +61,15 @@ for k, N in enumerate(neural_sizes):
     std_reward = np.std(reward_array, axis = 1)
     
     
+
     x = np.arange(400)*5
-    # axs[k].set_title(name)
-    axs[k].plot(x, mean_reward, label ='N: '+str(N))
-    axs[k].fill_between(x, mean_reward-std_reward, mean_reward+std_reward, alpha = 0.5)
-    axs[k].grid(True)
-    axs[k].legend()
-fig.text(0.5, 0.08, 'Ep. Treinamento', ha='center')
-fig.text(0.06, 0.5, 'Recompensa', va='center', rotation='vertical')    
+    # axs.set_title(name)´
+    axs.set_xlabel('Ep. Treinamento')
+    axs.set_ylabel('Recompensa')
+    axs.plot(x, mean_reward, label = ('LR: '+str(N)))
+    axs.fill_between(x, mean_reward-std_reward, mean_reward+std_reward, alpha = 0.5)
+    axs.grid(True)
+    axs.legend()
 # plt.show()
-plt.savefig('N.pgf',bbox_inches='tight')
+plt.savefig('lr.pgf',bbox_inches='tight')
 print(avg_df)

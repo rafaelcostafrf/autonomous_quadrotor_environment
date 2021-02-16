@@ -1,0 +1,15 @@
+128
+Neural Network N size: 128
+Seed Number: 8000
+Unique ID: ce18ae53c20047bdb11b7b2fcdfc4320
+Could not load dataframe, created a new one.
+Random Seed: 8000
+New models generated
+0.001 (0.9, 0.999)
+Environment Condition: Training
+Environment Condition: Training
+Environment Condition: Training
+Environment Condition: Training
+srun: Job step aborted: Waiting up to 32 seconds for job step to finish.
+slurmstepd: error: *** STEP 892935.0 ON n009 CANCELLED AT 2021-02-11T22:43:47 ***
+slurmstepd: error: *** JOB 892935 ON n009 CANCELLED AT 2021-02-11T22:43:47 ***

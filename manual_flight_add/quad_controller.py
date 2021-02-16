@@ -56,7 +56,7 @@ class quad_sim():
         self.sensor.reset()
         self.aux_dl =  dl_in_gen(T, 13, 4)
         self.control_network_in = self.aux_dl.dl_input(states, action)
-        self.last_shaping = 0
+        self.last_shaping = None
         self.text_solved = OnscreenText(text='', align=TextNode.ACenter, pos=(0, 0.4), scale=0.1, mayChange=1, fg = (255, 255, 255, 255))
         self.time_text = OnscreenText(text='', align=TextNode.ACenter, pos=(0, -0.4), scale=0.15, mayChange=1, fg = (255, 255, 255, 255))
         self.vel_bar = DirectWaitBar(text="", value=0, pos=(-0.4, 0, 0.8), scale = 0.4, barColor = (0, 1, 0, 1))
@@ -79,7 +79,7 @@ class quad_sim():
         
     def quad_reset_random(self):
      
-        
+        self.last_shaping = None
         random_marker_position = np.random.normal([0, 0], 0.8)
         self.render.checker.setPos(*tuple(random_marker_position), 0.001)
         self.marker_position = np.append(random_marker_position, 0.001)
@@ -220,7 +220,7 @@ class quad_sim():
                 self.df.to_csv(f, index=False)
             
 
-            solved_str = (' Solved' if n_solved else ' Not solved' )+' in {:.2f} seconds'.format(self.quad_env.i*0.01)
+            solved_str = (' Solved' if n_solved else ' Not solved' )+' in {:.2f} seconds with {:d} episodes'.format(self.quad_env.i*0.01, self.episode)
             self.render.taskMgr.add(self.spawn_text, 'test', extraArgs = [solved_str], appendTask=True)
             print('Done!'+solved_str)
             self.quad_reset_random() 

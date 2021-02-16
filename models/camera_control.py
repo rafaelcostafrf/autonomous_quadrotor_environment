@@ -80,8 +80,8 @@ class camera_control_v2():
         
     def camera_change(self):
         if self.camera_init:
-            self.env.cam.reparentTo(self.env.quad_model)
-            self.env.cam.setPos(0, 0, 0.01)
+            self.env.cam.reparentTo(self.render)
+            self.env.cam.setPos(self.env.quad_model.getPos())
             self.env.cam.setHpr(270, 270, 0)       
             self.env.cam.node().getLens().setFilmSize(36, 24)
             self.env.cam.node().getLens().setFocalLength(18)
@@ -91,6 +91,8 @@ class camera_control_v2():
             self.camera_init = True
         
     def camera_move(self, task):
+        if not self.camera_init:
+            self.env.cam.setPos(self.env.quad_model.getPos())
         if self.camera_init:
             '''
             Moves the camera about the quadcopter

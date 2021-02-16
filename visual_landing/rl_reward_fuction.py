@@ -98,4 +98,5 @@ def visual_reward(total_steps, marker_position, quad_position, quad_vel, control
 
 
     # print(reward)  
+    # print(reward)
     return reward, current_shaping, done, n_solved
