@@ -12,10 +12,10 @@ from mission_control.mission_control import mission
 import matplotlib.pyplot as plt
 
 
-P, I, D = 2.8, -0.04, 0.1
-P_z, I_z, D_z = 1.5, -0.1, 0
-P_a, I_a, D_a = 30, 0, 10
-P_ps, I_ps, D_ps =  30, 0, 10
+P, I, D = 1, -0.0, 0
+P_z, I_z, D_z = 0.4, -0.0, 0
+P_a, I_a, D_a = 20, 0, 20
+P_ps, I_ps, D_ps =  5, 0, 5
 
 class pid_control():
     def __init__(self, drone_env):
@@ -45,9 +45,9 @@ class pid_control():
         u_2 = self.pid_y.pid(dy, 0, xd[1], 0)
         u_3 = self.pid_z.pid(dz, 0, xd[2], 0)
 
-        theta_d = np.arctan(u_1/(u_3+self.env.gravity))
+        theta_d = np.arctan2(u_1, (u_3+self.env.gravity))
         
-        phi_d = np.arctan(-u_2/(u_3+self.env.gravity)*np.cos(theta_d))
+        phi_d = np.arctan2(-u_2*np.cos(theta_d), (u_3+self.env.gravity))
         
         U_1 = self.env.mass*(u_3 + self.env.gravity)/(np.cos(theta_d)*np.cos(phi_d))
         
@@ -117,29 +117,44 @@ class pid():
         return control
 
 
-mission_total_time = 500
-drone = quad(0.01, mission_total_time, euler=0, direct_control=0, T=5)
+mission_total_time = 1500
+total_episodes = 500
+drone = quad(0.01, mission_total_time, training = True, euler=0, direct_control=0, T=5)
 initial_state = np.array([0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0])
-state, action = drone.reset(initial_state)
-# state, action = drone.reset()
-action = np.zeros(4)
-controller = pid_control(drone)
+effort_array = []
+solved = 0
 plot = plotter(drone, True, False)
-j = 0
-while j < mission_total_time:
-    state, _, _ = drone.step(action)
-    X = np.array([1, 0, 0])
-    z = np.zeros(3)
-    
-    action = controller.control(X, z, 0, 0)
-    target = np.array([0, X[0], 0, X[1], 0, X[2], 1, 0, 0, 0, 0, 0, 0, 0])
-    plot.add(target)
-    j += 1
-    # print(state)
-plot.plot()    
-att = np.array(controller.att_target)
 
-plot.axs[1].plot(np.arange(j)/100, att[:,0])
-plot.axs[1].plot(np.arange(j)/100, att[:,1])
-# plt.plot(np.arange(j), att[:,1])
-plt.show()
+memory_array = np.zeros([total_episodes, mission_total_time, 13])
+
+for i in range(total_episodes):
+# state, action = drone.reset(initial_state)
+    state, action = drone.reset()
+    controller = pid_control(drone)
+    action = np.zeros(4)
+
+    j = 0
+    effort = 0
+    while j < mission_total_time:
+        state, _, _ = drone.step(action)
+        X = np.array([0, 0, 0])
+        z = np.zeros(3)
+        
+        action = controller.control(X, z, 0, 0)
+        target = np.array([0, X[0], 0, X[1], 0, X[2], 1, 0, 0, 0, 0, 0, 0, 0])
+        plot.add(target)
+        effort += np.sum(np.abs(drone.step_effort))
+        
+        memory_step = np.concatenate((drone.state[1:6:2], drone.ang, drone.ang_vel, drone.step_effort))
+        memory_array[i, j, :] = memory_step
+        j += 1
+        # print(state)
+    plot.plot()    
+    att = np.array(controller.att_target)
+    
+    plot.axs[1].plot(np.arange(j)/100, att[:,0])
+    plot.axs[1].plot(np.arange(j)/100, att[:,1])
+    # plt.plot(np.arange(j), att[:,1])
+    plt.show()
+    
+np.save('./environment/controller/classical_controller_results/pid_log', memory_array)

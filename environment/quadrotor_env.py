@@ -184,8 +184,14 @@ class quad():
         y = np.array([f, m[0,0], m[1,0], m[2,0]])
         
         u = np.linalg.solve(x, y)
-        if np.logical_or(u > T2WR*M*G/4/K_F, u < 0).any():
-            print('clip')
+        # if np.logical_or(u > T2WR*M*G/4/K_F, u < 0).any():
+        #     M_MAX = T2WR*M*G*D*0.7
+        #     lower_bound = 0.8*np.array([M*G/2, -M_MAX,  -M_MAX, -M_MAX])
+        #     upper_bound = 0.8*np.array([T2WR*M*G*0.8, M_MAX,  M_MAX, M_MAX])
+        #     print(y)
+        #     y = np.clip(y, lower_bound, upper_bound)
+        #     print(y)
+        #     u = np.linalg.solve(x, y)
         u = np.clip(u, 0, T2WR*M*G/4/K_F)
 
         
@@ -199,8 +205,10 @@ class quad():
         
         F_new = FM_new[0]
         M_new = FM_new[1:4]
-
-        return u*K_F, w, F_new, M_new
+        
+        step_effort = (u*K_F/(T2WR*M*G/4)*2)-1
+        
+        return step_effort, w, F_new, M_new
         
     def f2F(self, f_action):
         """""
@@ -403,7 +411,7 @@ class quad():
             self.action = np.clip(action,-1,1)
             u = self.action
             self.clipped_action = self.action
-            self.step_effort = (self.action+1)*T2WR*M*G/8
+            self.step_effort = self.action
         else:
             self.action = action
             self.step_effort, self.w, f_in, m_action = self.f2w(action[0], np.array([action[1::]]).T)
@@ -419,9 +427,10 @@ class quad():
         
         q = np.array([self.state[6:10]]).T
         q = q/np.linalg.norm(q)
-        self.prev_ang = self.ang
+
         self.ang = quat_euler(q)
         self.ang_vel = (self.ang - self.prev_ang)/self.t_step
+        self.prev_ang = self.ang
         self.previous_state = self.state
         self.done_condition()
         self.reward_function()
@@ -701,7 +710,8 @@ class plotter():
         
     def add(self, target):
         if self.velocity_plot:
-            state = np.concatenate((self.env.state[1:6:2].flatten(), target[1:6:2], self.env.ang.flatten(), self.env.clipped_action.flatten()))
+            # state = np.concatenate((self.env.state[1:6:2].flatten(), target[1:6:2], self.env.ang.flatten(), self.env.clipped_action.flatten()))
+            state = np.concatenate((self.env.state[1:6:2].flatten(), target[1:6:2], self.env.ang.flatten(), self.env.step_effort.flatten()))
         else:
             state = np.concatenate((self.env.state[0:5:2].flatten(), self.env.ang.flatten(), self.env.clipped_action.flatten()))
         self.states.append(state)
@@ -715,6 +725,7 @@ class plotter():
     def plot(self, nome='padrao'):
         P = 0.7
         fig, self.axs = plt.subplots(3, figsize=(P*21*0.3937,P*29.7*0.3937))
+        fig.suptitle(nome)
         self.states = np.array(self.states)
         self.times = np.array(self.times)
         for print_state, label, line_style, axis_place, color, name in zip(self.print_list, self.plot_labels, self.line_styles, self.plot_place, self.color, self.axis_labels):
@@ -724,6 +735,7 @@ class plotter():
             self.axs[axis_place].set(ylabel=name)
         plt.xlabel('tempo (s)')
         # plt.savefig(nome+'.pgf')
+        # plt.title(nome[-40:])
         plt.show()
         if self.depth_plot:
             fig3d = plt.figure('3D map')
