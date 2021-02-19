@@ -20,6 +20,50 @@ I_zz = 28.34e-3
 M = 1.03
 G = 9.82
 
+clipped = False
+
+if clipped:
+    Q_att = np.array([[5, 0, 0, 0, 0, 0],
+                      [0, 1, 0, 0, 0, 0],
+                      [0, 0, 5, 0, 0, 0],
+                      [0, 0, 0, 1, 0, 0],
+                      [0, 0, 0, 0, 0.05, 0],
+                      [0, 0, 0, 0, 0, 0.01]])*50
+    
+    R_att = np.diag(np.ones(4))*40
+    
+    
+    Q_t = np.array([[1e-08, 0, 0, 0, 0, 0],
+                    [0, 1, 0, 0, 0, 0],
+                    [0, 0, 1e-08, 0, 0, 0],
+                    [0, 0, 0, 1, 0, 0],
+                    [0, 0, 0, 0, 1e-08, 0],
+                    [0, 0, 0, 0, 0, 0.8]])*10
+    
+    R_t = np.diag(np.ones(3))*10
+else:
+    Q_att = np.array([[5, 0, 0, 0, 0, 0],
+                      [0, 0.3, 0, 0, 0, 0],
+                      [0, 0, 5, 0, 0, 0],
+                      [0, 0, 0, 0.3, 0, 0],
+                      [0, 0, 0, 0, 2, 0],
+                      [0, 0, 0, 0, 0, 0.3]])*160
+    
+    R_att = np.diag(np.ones(4))*40
+    
+    
+    Q_t = np.array([[1e-08, 0, 0, 0, 0, 0],
+                    [0, 1, 0, 0, 0, 0],
+                    [0, 0, 1e-08, 0, 0, 0],
+                    [0, 0, 0, 1, 0, 0],
+                    [0, 0, 0, 0, 1e-08, 0],
+                    [0, 0, 0, 0, 0, 0.5]])*60
+    
+    R_t = np.diag(np.ones(3))*5
+
+
+
+
 A_att = np.array([[0, 1, 0, 0, 0, 0],
               [0, 0, 0, 0, 0, 0],
               [0, 0, 0, 1, 0, 0],
@@ -34,14 +78,7 @@ B_att = np.array([[0, 0, 0, 0],
               [0, 0, 0, 0],
               [0, 0, 0, 1/I_zz]])
 
-Q_att = np.array([[5, 0, 0, 0, 0, 0],
-                  [0, 1, 0, 0, 0, 0],
-                  [0, 0, 5, 0, 0, 0],
-                  [0, 0, 0, 1, 0, 0],
-                  [0, 0, 0, 0, 0.05, 0],
-                  [0, 0, 0, 0, 0, 0.01]])*50
 
-R_att = np.diag(np.ones(4))*40
 R_inv_att = np.linalg.inv(R_att)
 
 P_att = solve_lqr(A_att, B_att, Q_att, R_att)
@@ -66,14 +103,7 @@ B_t = np.array([[0, 0, 0],
                 [0, 0, 1]])/M
 
 
-Q_t = np.array([[1e-08, 0, 0, 0, 0, 0],
-                [0, 1, 0, 0, 0, 0],
-                [0, 0, 1e-08, 0, 0, 0],
-                [0, 0, 0, 1, 0, 0],
-                [0, 0, 0, 0, 1e-08, 0],
-                [0, 0, 0, 0, 0, 0.8]])*10
 
-R_t = np.diag(np.ones(3))*10
 R_inv_t = np.linalg.inv(R_t)
 
 P_t = solve_lqr(A_t, B_t, Q_t, R_t)
@@ -84,7 +114,7 @@ K_t = -np.dot(R_inv_t, np.dot(B_t.T, P_t))
 time_int_step = 0.01
 T = 1
 
-env = quad(time_int_step, max_timesteps, training=True, euler=0, direct_control=0, T=T)
+env = quad(time_int_step, max_timesteps, training=True, euler=0, direct_control=0, T=T, clipped = clipped)
 env_plot = plotter(env, True, False)
 int_state = np.array([0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0])
 # state, action = env.reset(int_state)
@@ -134,5 +164,6 @@ for j in range(n_episodes):
         memory_array[j, i, :] = memory_step
 
     env_plot.plot()
-
-np.save('./classical_controller_results/lqr_log', memory_array)
+    
+clipped_str = '' if clipped else '_not_clipped'
+np.save('./classical_controller_results/lqr_log'+clipped_str, memory_array)

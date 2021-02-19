@@ -10,12 +10,20 @@ from environment.controller.response_analyzer import response_analyzer
 from environment.controller.target_parser import target_parse, episode_n
 from mission_control.mission_control import mission
 import matplotlib.pyplot as plt
+import uuid
 
-
-P, I, D = 1, -0.0, 0
-P_z, I_z, D_z = 0.4, -0.0, 0
-P_a, I_a, D_a = 20, 0, 20
-P_ps, I_ps, D_ps =  5, 0, 5
+id_run = uuid.uuid4()
+clipped = False
+if  clipped:
+    P, I, D = 1, -0.0, 0
+    P_z, I_z, D_z = 0.4, -0.0, 0
+    P_a, I_a, D_a = 20, 0, 20
+    P_ps, I_ps, D_ps =  5, 0, 5
+else:
+    P, I, D = 2, -0.0, 0
+    P_z, I_z, D_z = 1, -0.0, 0
+    P_a, I_a, D_a = 180, 0, 50
+    P_ps, I_ps, D_ps =  40, 0, 20
 
 class pid_control():
     def __init__(self, drone_env):
@@ -40,6 +48,7 @@ class pid_control():
         
         # [x, y, z] = self.env.state[0:5:2]
         [dx, dy, dz] = self.env.state[1:6:2]
+        [ax, ay, az] = self.env.accel.flatten()
         
         u_1 = self.pid_x.pid(dx, 0, xd[0], 0)
         u_2 = self.pid_y.pid(dy, 0, xd[1], 0)
@@ -119,7 +128,7 @@ class pid():
 
 mission_total_time = 1500
 total_episodes = 500
-drone = quad(0.01, mission_total_time, training = True, euler=0, direct_control=0, T=5)
+drone = quad(0.01, mission_total_time, training = True, euler=0, direct_control=0, T=5, clipped = clipped)
 initial_state = np.array([0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0])
 effort_array = []
 solved = 0
@@ -131,11 +140,12 @@ for i in range(total_episodes):
 # state, action = drone.reset(initial_state)
     state, action = drone.reset()
     controller = pid_control(drone)
-    action = np.zeros(4)
+    action = np.array([9.82*1.03, 0, 0, 0])
 
     j = 0
     effort = 0
     while j < mission_total_time:
+
         state, _, _ = drone.step(action)
         X = np.array([0, 0, 0])
         z = np.zeros(3)
@@ -157,4 +167,5 @@ for i in range(total_episodes):
     # plt.plot(np.arange(j), att[:,1])
     plt.show()
     
-np.save('./environment/controller/classical_controller_results/pid_log', memory_array)
+clipped_str = '' if clipped else '_not_clipped'
+np.save('./environment/controller/classical_controller_results/pid_log'+clipped_str, memory_array)

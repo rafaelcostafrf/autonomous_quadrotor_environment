@@ -83,7 +83,7 @@ TR_P = [3, 2, 1]
 
 
 class quad():
-    def __init__(self, t_step, n, training = True, euler=0, direct_control=1, T=1):        
+    def __init__(self, t_step, n, training = True, euler=0, direct_control=1, T=1, clipped = True):        
         """"
         inputs:
             t_step: integration time step 
@@ -95,6 +95,7 @@ class quad():
                 debug: If on, prints a readable reward funcion, step by step, for a simple reward weight debugging.
         
         """
+        self.clipped = clipped
         
         if training:
             self.ppo_training = True
@@ -192,13 +193,21 @@ class quad():
         #     y = np.clip(y, lower_bound, upper_bound)
         #     print(y)
         #     u = np.linalg.solve(x, y)
-        u = np.clip(u, 0, T2WR*M*G/4/K_F)
-
-        
-        w_1 = np.sqrt(u[0])
-        w_2 = np.sqrt(u[1])
-        w_3 = np.sqrt(u[2])
-        w_4 = np.sqrt(u[3])        
+        if self.clipped:
+            u = np.clip(u, 0, T2WR*M*G/4/K_F)
+            w_1 = np.sqrt(u[0])
+            w_2 = np.sqrt(u[1])
+            w_3 = np.sqrt(u[2])
+            w_4 = np.sqrt(u[3])   
+        else:
+            modules = np.zeros(4)
+            for k in range(4):
+                modules[k] = -1 if u[k] < 0 else 1
+            w_1 = np.sqrt(np.abs(u[0]))*modules[0]
+            w_2 = np.sqrt(np.abs(u[1]))*modules[1]
+            w_3 = np.sqrt(np.abs(u[2]))*modules[2]
+            w_4 = np.sqrt(np.abs(u[3]))*modules[3]
+            
         w = np.array([[w_1,w_2,w_3,w_4]]).T
 
         FM_new = np.dot(x, u)
