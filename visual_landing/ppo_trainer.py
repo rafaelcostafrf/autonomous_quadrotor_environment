@@ -67,12 +67,12 @@ class PPO:
         self.policy_old.load_state_dict(self.policy.state_dict())
         
         try:
-            self.policy.load_state_dict(torch.load('./PPO_landing.pth', map_location=self.device))
-            self.policy_old.load_state_dict(torch.load('./PPO_landing_old.pth', map_location=self.device))
+            self.policy.load_state_dict(torch.load('./visual_landing/PPO_landing.pth', map_location=self.device))
+            self.policy_old.load_state_dict(torch.load('./visual_landing/PPO_landing_old.pth', map_location=self.device))
             print('Saved Landing Policy loaded')
         except:
-            torch.save(self.policy.state_dict(), './PPO_landing.pth')
-            torch.save(self.policy_old.state_dict(), './PPO_landing_old.pth')
+            torch.save(self.policy.state_dict(), './visual_landing/PPO_landing.pth')
+            torch.save(self.policy_old.state_dict(), './visual_landing/PPO_landing_old.pth')
             print('New Landing Policy generated')
             pass
         
@@ -200,5 +200,5 @@ class PPO:
         self.critic_epoch_loss = []
         self.actor_epoch_loss = []
         self.policy_old.load_state_dict(self.policy.state_dict())  
-        torch.save(self.policy.state_dict(), './PPO_landing.pth')
-        torch.save(self.policy_old.state_dict(), './PPO_landing_old.pth')
+        torch.save(self.policy.state_dict(), './visual_landing/PPO_landing.pth')
+        torch.save(self.policy_old.state_dict(), './visual_landing/PPO_landing_old.pth')
