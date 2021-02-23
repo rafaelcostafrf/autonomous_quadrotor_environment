@@ -10,10 +10,11 @@ from environment.controller.response_analyzer import response_analyzer
 from environment.controller.target_parser import target_parse, episode_n
 from mission_control.mission_control import mission
 import matplotlib.pyplot as plt
-import uuid
 
-id_run = uuid.uuid4()
-clipped = False
+
+seed = 1
+
+clipped = True
 if  clipped:
     P, I, D = 1, -0.0, 0
     P_z, I_z, D_z = 0.4, -0.0, 0
@@ -126,9 +127,10 @@ class pid():
         return control
 
 
-mission_total_time = 1500
-total_episodes = 500
+mission_total_time = 500
+total_episodes = 20
 drone = quad(0.01, mission_total_time, training = True, euler=0, direct_control=0, T=5, clipped = clipped)
+drone.seed(seed)
 initial_state = np.array([0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0])
 effort_array = []
 solved = 0
@@ -168,4 +170,4 @@ for i in range(total_episodes):
     plt.show()
     
 clipped_str = '' if clipped else '_not_clipped'
-np.save('./environment/controller/classical_controller_results/pid_log'+clipped_str, memory_array)
+np.save('./environment/controller/classical_controller_results/pid_log_same_start'+clipped_str, memory_array)

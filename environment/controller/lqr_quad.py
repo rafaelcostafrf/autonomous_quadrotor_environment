@@ -7,9 +7,9 @@ from environment.quadrotor_env import quad, plotter
 
 import pandas as pd 
 
-
-n_episodes = 500
-max_timesteps = 1500
+seed = 1
+n_episodes = 20
+max_timesteps = 500
 memory_array = np.zeros([n_episodes, max_timesteps, 13])
 
 solved = 0 
@@ -20,7 +20,7 @@ I_zz = 28.34e-3
 M = 1.03
 G = 9.82
 
-clipped = False
+clipped = True
 
 if clipped:
     Q_att = np.array([[5, 0, 0, 0, 0, 0],
@@ -115,12 +115,14 @@ time_int_step = 0.01
 T = 1
 
 env = quad(time_int_step, max_timesteps, training=True, euler=0, direct_control=0, T=T, clipped = clipped)
+env.seed(seed)
 env_plot = plotter(env, True, False)
-int_state = np.array([0, 1, 0, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0])
-# state, action = env.reset(int_state)
+
+
 effort_array = []
 for j in range(n_episodes):
     state, action = env.reset()
+
     effort = 0
     euler_t_ant = env.ang
     for i in range(max_timesteps):
@@ -166,4 +168,4 @@ for j in range(n_episodes):
     env_plot.plot()
     
 clipped_str = '' if clipped else '_not_clipped'
-np.save('./classical_controller_results/lqr_log'+clipped_str, memory_array)
+np.save('./classical_controller_results/lqr_log_same_start'+clipped_str, memory_array)

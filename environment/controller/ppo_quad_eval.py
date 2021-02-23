@@ -21,14 +21,16 @@ DESCRIPTION:
 """
 file_name = 'nn_old_solved_128_32000_e8f2b04d78f34fc794e686dcb00944d2.pth'
 file = '/home/rafaelcostaf/mestrado/quadrotor_environment/environment/controller/solved/'+file_name
+seed = 1
 
 N = 128
 time_int_step = 0.01
-max_timesteps = 1500
+max_timesteps = 500
 T = 5
 # device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 device = torch.device('cpu')
 env = quad(time_int_step, max_timesteps, training=False, euler=0, direct_control=1, T=T)
+env.seed(seed)
 state_dim = 75
 policy = ActorCritic(N, state_dim, action_dim=4, action_std=0.01, fixed_std = True).to(device)
 dl_aux = dl_in_gen(5, 13, 4)
@@ -36,7 +38,7 @@ env_plot = plotter(env, velocity_plot=True)
 #LOAD TRAINED POLICY
 policy.load_state_dict(torch.load(file, map_location=device))
     
-n_episodes = 500
+n_episodes = 20
 memory_array = np.zeros([n_episodes, max_timesteps, 13])
 
 for j in range(n_episodes):
@@ -61,4 +63,4 @@ for j in range(n_episodes):
 
     env_plot.plot()
 
-np.save('/home/rafaelcostaf/mestrado/quadrotor_environment/environment/controller/classical_controller_results/rl_log', memory_array)
+np.save('/home/rafaelcostaf/mestrado/quadrotor_environment/environment/controller/classical_controller_results/rl_log_same_start', memory_array)

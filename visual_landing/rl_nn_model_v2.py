@@ -29,11 +29,27 @@ class Flatten(nn.Module):
     def forward(self, input):
         return input.view(input.size(0), -1)
     
-def plot_conv(x, name):
-    for channel in x[0]:
+def plot_conv(x, sqr, name):
+    for i, channel in enumerate(x[0]):
         image = ((channel-channel.min())/(channel.max()-channel.min()+1e-8)).detach().cpu().numpy()
-    cv.imshow('conv_in_'+str(name), image)
-    cv.waitKey(1)
+
+        if i == 0:
+            image_out = image.copy()
+        else:    
+            if i % sqr == 0:
+                image_out = image
+            else:
+                image_out = np.concatenate((image_out, image), axis = 1)
+                if i == sqr-1:
+                    image_total = image_out.copy()
+                elif i % sqr == sqr-1:
+                    image_total = np.concatenate((image_total, image_out), axis = 0)
+    h, w = image_total.shape[:2]
+    aspect = w/h
+    image_total = cv.resize(image_total,(int(640*aspect), 640))
+    cv.imwrite('./visual_landing/pictures_save/conv_layer_'+str(name)+'.png', image_total*255)            
+    # cv.imshow('conv_in_'+str(name), image_total)
+    # cv.waitKey(1)
     return
 
 def plot_conv3D(x, name):
@@ -56,20 +72,19 @@ class conv_forward(nn.Module):
         
     def forward(self, x):
 
-        # plot_conv(x, 0)
+        # plot_conv(x, 3, 0)
         x = torch.tanh(self.conv_1(x))
         # x = torch.nn.functional.avg_pool2d(x, 2)
-        # plot_conv(x, 1)
+        # plot_conv(x, 8, 1)
 
         x = torch.tanh(self.conv_2(x))
         # x = torch.nn.functional.avg_pool2d(x, 2)
-        # plot_conv(x, 2)
+        # plot_conv(x, 11, 2)
         
 
         x = torch.tanh(self.conv_3(x))
         # x = torch.nn.functional.avg_pool2d(x, 2)
-        # if not self.child:
-        #     plot_conv(x, 3)
+        # plot_conv(x, 11, 3)
         
         # x = torch.tanh(self.conv_4(x))
         # x = torch.max_pool2d(x, 2)

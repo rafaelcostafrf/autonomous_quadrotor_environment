@@ -25,7 +25,7 @@ DESCRIPTION:
 
 
 ## HYPERPARAMETERS - CHANGE IF NECESSARY ##
-lr_ac = 0.00005
+lr_ac = 0.00002
 # lr_ct = 0.00001
 
 action_std = 0.1

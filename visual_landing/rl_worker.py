@@ -12,7 +12,7 @@ process = psutil.Process(os.getpid())
 # ENVIRONMENT AND CONTROLLER SETUP
 from environment.quadrotor_env_opt import quad, sensor
 from environment.quaternion_euler_utility import deriv_quat
-from environment.controller.model import ActorCritic_old
+from environment.controller.model import ActorCritic_old, ActorCritic
 from environment.controller.dl_auxiliary import dl_in_gen
 from collections import deque
 
@@ -54,9 +54,9 @@ VELOCITY_D = [0, 0, -VELOCITY_SCALE[2]/1.5]
 #CONTROL POLICY
 AUX_DL = dl_in_gen(T, 13, 4)
 state_dim = AUX_DL.deep_learning_in_size
-CRTL_POLICY = ActorCritic_old(state_dim, action_dim=4, action_std=0)
+CRTL_POLICY = ActorCritic(128, state_dim, action_dim=4, action_std=0, fixed_std = True)
 try:
-    CRTL_POLICY.load_state_dict(torch.load('./visual_landing/controller/PPO_continuous_drone_velocity_solved.pth'))
+    CRTL_POLICY.load_state_dict(torch.load('./visual_landing/controller/nn_old_solved_128_32000_e8f2b04d78f34fc794e686dcb00944d2.pth'))
     print('Saved Control policy loaded')
 except:
     print('Could not load Control policy')

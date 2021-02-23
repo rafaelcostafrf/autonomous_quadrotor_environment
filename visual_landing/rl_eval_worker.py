@@ -12,7 +12,7 @@ process = psutil.Process(os.getpid())
 # ENVIRONMENT AND CONTROLLER SETUP
 from environment.quadrotor_env_opt import quad, sensor
 from environment.quaternion_euler_utility import deriv_quat
-from environment.controller.model import ActorCritic_old
+from environment.controller.model import ActorCritic_old, ActorCritic
 from environment.controller.dl_auxiliary import dl_in_gen
 from collections import deque
 
@@ -24,20 +24,23 @@ import matplotlib.pyplot as plt
 import matplotlib
 import pandas as pd
 
+N = 128
 plot_eval = True
 save_pgf = True
 nome = 'pouso_aleatorio'
 if save_pgf:
     matplotlib.use("pgf")
     matplotlib.rcParams.update({
-        "pgf.texsystem": "lualatex",
+        "pgf.texsystem": "pdflatex",
         'font.family': 'serif',
         'text.usetex': True,
         'pgf.rcfonts': False,
+        'pgf.preamble':[
+            '\DeclareUnicodeCharacter{2212}{-}']
     })
 
 
-EVAL_TOTAL = 1
+EVAL_TOTAL = 100
 
 T = 5
 T_visual_time = 0
@@ -57,9 +60,9 @@ VELOCITY_D = [0, 0, -VELOCITY_SCALE[2]/1.5]
 #CONTROL POLICY
 AUX_DL = dl_in_gen(T, 13, 4)
 state_dim = AUX_DL.deep_learning_in_size
-CRTL_POLICY = ActorCritic_old(state_dim, action_dim=4, action_std=0)
+CRTL_POLICY = ActorCritic(N, state_dim, action_dim=4, action_std=0, fixed_std = True)
 # try:
-CRTL_POLICY.load_state_dict(torch.load('./environment/controller/PPO_continuous_drone_velocity_solved.pth'))
+CRTL_POLICY.load_state_dict(torch.load('./visual_landing/controller/nn_old_solved_128_32000_e8f2b04d78f34fc794e686dcb00944d2.pth'))
 print('Saved Control policy loaded')
 # except:
 #     print('Could not load Control policy')
@@ -311,9 +314,9 @@ class quad_worker():
                 
                 
                 
-                labels = ['X (m)', 'Y (m)', 'Z (m)']
+                labels = ['$E_X$ (m)', '$E_Y$ (m)', '$E_Z$ (m)']
 
-                fig, axs = plt.subplots(4, 1, figsize=(P*21*0.3937,P*29.7*0.3937))
+                fig, axs = plt.subplots(4, 1, figsize = (7, 7*1.414))
                 
                 lines = axs[0].plot(plot_time[10:self.quad_env.i], ERROR_AVG[10:self.quad_env.i, 0:3])
                 
@@ -338,7 +341,7 @@ class quad_worker():
                     axis.grid(True)
                 
                 if save_pgf:
-                    plt.savefig(nome+'.pgf')      
+                    plt.savefig(nome+'2.pgf', bbox_inches='tight')     
                 else:
                     plt.show()
                 
