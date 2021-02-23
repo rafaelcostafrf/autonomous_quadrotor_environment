@@ -1,4 +1,5 @@
 child_data/
-PPO_landing_old.pth
-PPO_landing.pth
-*.pth
+__pycache__/
+*.pyc
+environment/controller/classical_controller_results/backup.zip
+
