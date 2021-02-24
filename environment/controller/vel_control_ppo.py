@@ -19,7 +19,7 @@ E−MAIL: COSTA.FERNANDES@UFABC.EDU.BR
 DESCRIPTION:
     PPO testing algorithm (no training, only forward passes)
 """
-N_ARRAY = [16, 32, 64, 128, 256]
+N_ARRAY = [128]
 
 for N in N_ARRAY:
     time_int_step = 0.01
@@ -33,13 +33,13 @@ for N in N_ARRAY:
     dl_aux = dl_in_gen(5, 13, 4)
     env_plot = plotter(env, velocity_plot=True)
 
-    for file in glob.glob('/home/rafaelcostaf/mestrado/quadrotor_environment/environment/controller/solved/nn_old_solved_'+str(N)+'*.pth'):
+    for file in glob.glob('/home/rafaelcostaf/mestrado/quadrotor_environment/environment/controller/solved/nn_old_solved_128_32000_e8f2b04d78f34fc794e686dcb00944d2.pth'):
         #LOAD TRAINED POLICY
         policy.load_state_dict(torch.load(file,map_location=device))
         
         T_ERROR = np.array([0, 1])
         ERROR = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                          [0, -5, 0, -5, 0, -5, 0, 0, 0, 0, 0, 0, 0, 0]])
+                          [0, -1, 0, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0]])
         
         INT_STATE = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
         RAMP = np.linspace(ERROR[0], ERROR[1], max_timesteps)
@@ -54,12 +54,13 @@ for N in N_ARRAY:
         i_alvo=0
         t=0
         i = 0
-        nome = str(N)+"  "+file[-9:-4]
+
         
-        degrau = False
-        ramp = True
+        degrau = True
+        ramp = False
         random = False
         
+        nome = './classical_controller_results/degrau_unitario_xyz'
         
         if random:
             state, action = env.reset()

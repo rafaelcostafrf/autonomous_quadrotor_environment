@@ -13,10 +13,12 @@ matplotlib.rcParams.update({
 
 import matplotlib.pyplot as plt
 
+M, G = 1.03, 9.82
+
 files_array = ['lqr_log_same_start.npy', 'lqr_log_same_start_not_clipped.npy', 'pid_log_same_start.npy', 'pid_log_same_start_not_clipped.npy', 'rl_log_same_start.npy']
 Names = ['LQR', 'LQR SL', 'PID', 'PID SL', 'RL']
 Axis_names = ['$\dot X$', '$\dot Y$', '$\dot Z$']
-Action_names = ['$u_1$', '$u_2$', '$u_3$','$u_4$']
+Action_names = ['$T_{MH,1}$', '$T_{MH,2}$', '$T_{MH,3}$', '$T_{MH,4}$']
 fig_array = []
 ax_array = []
 
@@ -32,7 +34,7 @@ for (k, file), name in zip(enumerate(files_array), Names):
     for i, episode in enumerate(a):
         vel = episode[:, 0:3]
         ang = episode[:, 3:6]
-        action = episode[:, -4:]
+        action = (episode[:, -4:]+1)*2*M*G/4
         t = np.arange(0, a.shape[1])*0.01
         [x, y, z] = ax_array[i][k][0].plot(t, vel, linewidth = 0.5)
         [u1, u2, u3, u4] = ax_array[i][k][1].plot(t, action, linestyle = '--', linewidth = 0.5)

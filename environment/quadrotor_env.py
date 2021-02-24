@@ -18,13 +18,15 @@ DEVELOPED BY:
 FURTHER DOCUMENTATION ON README.MD
 """""
 
-# matplotlib.use("pgf")
-# matplotlib.rcParams.update({
-#     "pgf.texsystem": "lualatex",
-#     'font.family': 'serif',
-#     'text.usetex': True,
-#     'pgf.rcfonts': False,
-# })
+matplotlib.use("pgf")
+matplotlib.rcParams.update({
+    "pgf.texsystem": "pdflatex",
+    'font.family': 'serif',
+    'text.usetex': True,
+    'pgf.rcfonts': False,
+    'pgf.preamble':[
+        '\DeclareUnicodeCharacter{2212}{-}']
+})
 
 ## SIMULATION BOUNDING BOXES ##
 BB_POS = 5
@@ -689,14 +691,14 @@ class plotter():
         self.times = []
         self.print_list = range(13)
         if velocity_plot:
-            self.plot_labels = ['$v_x$', '$v_y$', '$v_z$',
+            self.plot_labels = ['$\dot X$', '$\dot Y$', '$\dot Z$',
                                 '', '', '',
                                 '$\phi$', '$\\theta$', '$\psi$', 
-                                '$u_1$', '$u_2$', '$u_3$', '$u_4$']
+                                '$T_{MH,1}$', '$T_{MH,2}$', '$T_{MH,3}$', '$T_{MH,4}$']
             self.axis_labels = ['velocidade (ms)', 'velocidade (ms)', 'velocidade (ms)',
                                 'velocidade (ms)', 'velocidade (ms)', 'velocidade (ms)',
                                 'atitude (rad)', 'atitude (rad)', 'atitude (rad)', 
-                                '\%E', '\%E', '\%E', '\%E']
+                                'E', 'E', 'E', 'E']
             self.depth_plot = False
         else:
             self.plot_labels = ['x', 'y', 'z',
@@ -720,7 +722,7 @@ class plotter():
     def add(self, target):
         if self.velocity_plot:
             # state = np.concatenate((self.env.state[1:6:2].flatten(), target[1:6:2], self.env.ang.flatten(), self.env.clipped_action.flatten()))
-            state = np.concatenate((self.env.state[1:6:2].flatten(), target[1:6:2], self.env.ang.flatten(), self.env.step_effort.flatten()))
+            state = np.concatenate((self.env.state[1:6:2].flatten(), target[1:6:2], self.env.ang.flatten(), (self.env.step_effort.flatten()+1)*T2WR*M*G/4 ))
         else:
             state = np.concatenate((self.env.state[0:5:2].flatten(), self.env.ang.flatten(), self.env.clipped_action.flatten()))
         self.states.append(state)
@@ -733,8 +735,8 @@ class plotter():
         
     def plot(self, nome='padrao'):
         P = 0.7
-        fig, self.axs = plt.subplots(3, figsize=(P*21*0.3937,P*29.7*0.3937))
-        fig.suptitle(nome)
+        fig, self.axs = plt.subplots(3, figsize = (7, 7*1.414), dpi=300)
+        # fig.suptitle(nome)
         self.states = np.array(self.states)
         self.times = np.array(self.times)
         for print_state, label, line_style, axis_place, color, name in zip(self.print_list, self.plot_labels, self.line_styles, self.plot_place, self.color, self.axis_labels):
@@ -743,7 +745,7 @@ class plotter():
             self.axs[axis_place].grid(True)
             self.axs[axis_place].set(ylabel=name)
         plt.xlabel('tempo (s)')
-        # plt.savefig(nome+'.pgf')
+        plt.savefig(nome+'.pgf', bbox_inches='tight')
         # plt.title(nome[-40:])
         plt.show()
         if self.depth_plot:
