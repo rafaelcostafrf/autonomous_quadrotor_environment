@@ -24,10 +24,10 @@ import matplotlib.pyplot as plt
 import matplotlib
 import pandas as pd
 
-N = 128
+N = 64
 plot_eval = True
 save_pgf = True
-nome = 'pouso_aleatorio'
+nome = './resultados/pouso_autonomo/pouso_aleatorio2'
 if save_pgf:
     matplotlib.use("pgf")
     matplotlib.rcParams.update({
@@ -40,7 +40,7 @@ if save_pgf:
     })
 
 
-EVAL_TOTAL = 100
+EVAL_TOTAL = 1
 
 T = 5
 T_visual_time = 0
@@ -60,9 +60,9 @@ VELOCITY_D = [0, 0, -VELOCITY_SCALE[2]/1.5]
 #CONTROL POLICY
 AUX_DL = dl_in_gen(T, 13, 4)
 state_dim = AUX_DL.deep_learning_in_size
-CRTL_POLICY = ActorCritic(N, state_dim, action_dim=4, action_std=0, fixed_std = True)
+CRTL_POLICY = ActorCritic_old(N, state_dim, action_dim=4, action_std=0)
 # try:
-CRTL_POLICY.load_state_dict(torch.load('./visual_landing/controller/nn_old_solved_128_32000_e8f2b04d78f34fc794e686dcb00944d2.pth'))
+CRTL_POLICY.load_state_dict(torch.load('./visual_landing/controller/PPO_continuous_drone_velocity_solved.pth'))
 print('Saved Control policy loaded')
 # except:
 #     print('Could not load Control policy')
@@ -320,14 +320,14 @@ class quad_worker():
                 
                 lines = axs[0].plot(plot_time[10:self.quad_env.i], ERROR_AVG[10:self.quad_env.i, 0:3])
                 
-                lines_1 = axs[1].plot(plot_time[10:self.quad_env.i], VEL_AVG[10:self.quad_env.i, 0], color = 'r', label = '$V_x (m/s)$')
-                lines_2 = axs[1].plot(plot_time[10:self.quad_env.i], CONTROL_AVG[10:self.quad_env.i, 0], ls = '--', color = 'r', label = '$C_x (m/s)$')
+                lines_1 = axs[1].plot(plot_time[10:self.quad_env.i], VEL_AVG[10:self.quad_env.i, 0], color = 'r', label = '$\dot X$ (m/s)')
+                lines_2 = axs[1].plot(plot_time[10:self.quad_env.i], CONTROL_AVG[10:self.quad_env.i, 0], ls = '--', color = 'r', label = '$\dot{X}_d$ (m/s)')
                 
-                lines_3 = axs[2].plot(plot_time[10:self.quad_env.i], VEL_AVG[10:self.quad_env.i, 1], color = 'b', label = '$V_y (m/s)$')
-                lines_4 = axs[2].plot(plot_time[10:self.quad_env.i], CONTROL_AVG[10:self.quad_env.i, 1], ls = '--', color = 'b', label = '$C_y (m/s)$')
+                lines_3 = axs[2].plot(plot_time[10:self.quad_env.i], VEL_AVG[10:self.quad_env.i, 1], color = 'b', label = '$\dot Y$ (m/s)')
+                lines_4 = axs[2].plot(plot_time[10:self.quad_env.i], CONTROL_AVG[10:self.quad_env.i, 1], ls = '--', color = 'b', label = '$\dot{Y}_d$ (m/s)')
                 
-                lines_5 = axs[3].plot(plot_time[10:self.quad_env.i], VEL_AVG[10:self.quad_env.i, 2], color = 'g', label = '$V_z (m/s)$')
-                lines_6 = axs[3].plot(plot_time[10:self.quad_env.i], CONTROL_AVG[10:self.quad_env.i, 2], ls = '--', color = 'g', label = '$C_z (m/s)$')
+                lines_5 = axs[3].plot(plot_time[10:self.quad_env.i], VEL_AVG[10:self.quad_env.i, 2], color = 'g', label = '$\dot Z$ (m/s)')
+                lines_6 = axs[3].plot(plot_time[10:self.quad_env.i], CONTROL_AVG[10:self.quad_env.i, 2], ls = '--', color = 'g', label = '$\dot{Z}_d$ (m/s)')
                 
                 axs[3].set_xlabel('Tempo (s)')
                 
@@ -341,7 +341,7 @@ class quad_worker():
                     axis.grid(True)
                 
                 if save_pgf:
-                    plt.savefig(nome+'2.pgf', bbox_inches='tight')     
+                    plt.savefig(nome+'.pgf', bbox_inches='tight')     
                 else:
                     plt.show()
                 
