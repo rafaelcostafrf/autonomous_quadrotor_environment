@@ -1,5 +1,6 @@
 child_data/
 __pycache__/
 *.pyc
+*.png
 environment/controller/classical_controller_results/backup.zip
 
