@@ -5,8 +5,9 @@ pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
 
 files_array = ['lqr_log.npy', 'lqr_log_not_clipped.npy', 'pid_log.npy', 'pid_log_not_clipped.npy', 'rl_log.npy']
-header = ['Settling Time', 'Overshoot', 'Accum. Error', 'SS error', 'Control Effort', 'Succes Proportion']
+header = ['Settling Time', 'Overshoot', 'Accum. Error', 'SS error', 'Control Effort', 'Max Control Effort', 'Succes Proportion']
 df = pd.DataFrame(columns = header)
+M, G, T2WR = 1.03, 9.82, 2
 
 for file in files_array:
     a = np.load(file)
@@ -14,6 +15,7 @@ for file in files_array:
     succ = np.zeros(a.shape[0])
     epp = np.zeros(a.shape[0])
     efc = np.zeros(a.shape[0])
+    efcmax = np.zeros(a.shape[0])
     ts = np.zeros(a.shape[0])
     ov = np.zeros(a.shape[0])
     ev = np.zeros(a.shape[0])
@@ -59,20 +61,23 @@ for file in files_array:
     for i, episode in enumerate(a):
         if success(episode):
             succ[i] = 1
+            episode[:, -4:] = (episode[:, -4:] + 1)*M*G*T2WR/8
             ev[i] = np.mean(np.linalg.norm(episode[:, 0:3], axis = 1))
             epp[i] = np.linalg.norm(episode[-1, 0:3])
             efc[i] = np.mean(np.sum(np.abs(episode[:, -4:]), axis = 1))
             ts[i] = ts_calculator(episode)
             ov[i] = ov_calculator(episode)
+            efcmax[i] = np.max(np.sum(np.abs(episode[:, -4:]), axis = 1))
             
     sa_mean = np.mean(succ)
     mask = np.logical_not(succ)
     pe_mean = np.mean(np.ma.masked_array(epp, mask = mask))
     ce_mean = np.mean(np.ma.masked_array(efc, mask = mask))
+    cemax_mean = np.mean(np.ma.masked_array(efcmax, mask = mask))
     st_mean = np.mean(np.ma.masked_array(ts, mask = mask))
     ov_mean = np.mean(np.ma.masked_array(ov, mask = mask))
     ev_mean = np.mean(np.ma.masked_array(ev, mask = mask))
-    data = (st_mean, ov_mean, ev_mean, pe_mean, ce_mean, sa_mean)
+    data = (st_mean, ov_mean, ev_mean, pe_mean, ce_mean, cemax_mean, sa_mean)
     data = pd.Series(data, name = file, index = header)
     df = df.append(data)
     print('File: {} Success Average: {:.3%} P. Error Avg: {:.3e} Control Effort Avg: {:.3e} Settling Time Avg: {:.3e} Overshoot Mean: {:.3e} Total Error: {:.3e}'.format(file, sa_mean, pe_mean, ce_mean, st_mean, ov_mean, ev_mean))

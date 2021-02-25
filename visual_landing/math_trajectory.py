@@ -59,16 +59,28 @@ class pos_pi():
     def reset(self):
         self.integrator = np.zeros(3)
 
-def sensor_sp(sensor):
+def sensor_sp(sensor):               
             _, velocity_accel, pos_accel = sensor.accel_int()
             quaternion_gyro = sensor.gyro_int()
             ang_vel = sensor.gyro()
             quaternion_vel = deriv_quat(ang_vel, quaternion_gyro)
             pos_gps, vel_gps = sensor.gps()
+            # print(pos_gps, vel_gps)
+            # print(pos_accel, velocity_accel)
             quaternion_triad, _ = sensor.triad()
-            pos_vel = np.array([pos_accel[0], velocity_accel[0],
-                                pos_accel[1], velocity_accel[1],
-                                pos_accel[2], velocity_accel[2]])
+            if GPS:
+                pos = ((100-GPS_P)*pos_accel + GPS_P*pos_gps)/100
+                # print(pos)
+                vel = ((100-GPS_P)*velocity_accel + GPS_P*vel_gps)/100
+                # print(vel)
+                sensor.position_t0 = pos
+                sensor.velocity_t0 = vel               
+            else:
+                pos = pos_accel
+                vel = velocity_accel
+            pos_vel = np.array([pos[0], vel[0],
+                                pos[1], vel[1],
+                                pos[2], vel[2]])
             states_sens = np.array([np.concatenate((pos_vel, quaternion_gyro, quaternion_vel))   ])
             return states_sens
 
@@ -76,7 +88,7 @@ def sensor_sp(sensor):
 VELOCITY_SCALE = np.array([0.5, 0.5, 1])
 VELOCITY_D = np.array([0, 0, -VELOCITY_SCALE[2]/1.5])
 
-EP = 200
+EP = 500
 
 delta_v = 0
 solved = 0
@@ -88,8 +100,9 @@ CONTROL = np.zeros([EP, max_timesteps, 3])
 
 pos_control = pos_pi(4.5, 0.5, 0.00, time_int_step)
 
-MEMS = True
-
+MEMS = False
+GPS = False
+GPS_P = 0.1
 for i in range(EP):
     AUX_DL.reset()
     state, action, marker_position = quad_reset_random()

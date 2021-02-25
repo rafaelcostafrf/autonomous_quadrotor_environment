@@ -19,9 +19,51 @@ E−MAIL: COSTA.FERNANDES@UFABC.EDU.BR
 DESCRIPTION:
     PPO testing algorithm (no training, only forward passes)
 """
-N_ARRAY = [128]
 
-for N in N_ARRAY:
+
+NAME_T = ['degrau_unitario_x', 'degrau_unitario_y', 'degrau_unitario_z', 'degrau_unitario_xyz', 'rampa_unitario_x', 'rampa_unitario_y', 'rampa_unitario_z', 'rampa_unitario_xyz']
+
+dx = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+               [0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+
+dy = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+               [0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+
+dz = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+               [0, 0, 0, 0, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0]])
+
+dxyz = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, -1, 0, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0]])
+
+rx =  np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+               [0, -5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+
+ry = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+              [0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
+
+rz = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+              [0, 0, 0, 0, 0, -5, 0, 0, 0, 0, 0, 0, 0, 0]])
+
+rxyz = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                [0, -5, 0, -5, 0, -5, 0, 0, 0, 0, 0, 0, 0, 0]])
+
+ERROR_T = [dx, dy, dz, dxyz, rx, ry, rx, rxyz]
+         
+    
+
+TYPE_A = [(True, False, False),
+          (True, False, False),
+          (True, False, False),
+          (True, False, False),
+          (False, True, False),
+          (False, True, False),
+          (False, True, False),
+          (False, True, False)]
+
+N = 128
+
+for NAME, ERROR, TYPE_C in zip(NAME_T, ERROR_T, TYPE_A):
+
     time_int_step = 0.01
     max_timesteps = 500
     T = 5
@@ -32,15 +74,13 @@ for N in N_ARRAY:
     policy = ActorCritic(N, state_dim, action_dim=4, action_std=0.01, fixed_std = True).to(device)
     dl_aux = dl_in_gen(5, 13, 4)
     env_plot = plotter(env, velocity_plot=True)
-
+    
     for file in glob.glob('/home/rafaelcostaf/mestrado/quadrotor_environment/environment/controller/solved/nn_old_solved_128_32000_e8f2b04d78f34fc794e686dcb00944d2.pth'):
         #LOAD TRAINED POLICY
         policy.load_state_dict(torch.load(file,map_location=device))
         
         T_ERROR = np.array([0, 1])
-        ERROR = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                          [0, -1, 0, -1, 0, -1, 0, 0, 0, 0, 0, 0, 0, 0]])
-        
+       
         INT_STATE = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
         RAMP = np.linspace(ERROR[0], ERROR[1], max_timesteps)
         
@@ -54,13 +94,12 @@ for N in N_ARRAY:
         i_alvo=0
         t=0
         i = 0
+    
+        
+        degrau, ramp, random = TYPE_C
 
         
-        degrau = True
-        ramp = False
-        random = False
-        
-        nome = './classical_controller_results/degrau_unitario_xyz'
+        nome = './classical_controller_results/'+NAME
         
         if random:
             state, action = env.reset()
@@ -101,11 +140,11 @@ for N in N_ARRAY:
             
         if ramp:
             while not done and i < max_timesteps:
-                ERROR = RAMP[i]
+                error = RAMP[i]
                 action = policy.actor(torch.FloatTensor(in_nn).to(device)).cpu().detach().numpy()
                 state, _, done = env.step(action)
-                in_nn = dl_aux.dl_input(state+ERROR, np.array([action]))
-                env_plot.add(-ERROR)  
+                in_nn = dl_aux.dl_input(state+error, np.array([action]))
+                env_plot.add(-error)  
                 t+=time_int_step
                 i+= 1
             env_plot.plot(nome)

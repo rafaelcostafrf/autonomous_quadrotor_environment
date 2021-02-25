@@ -695,10 +695,10 @@ class plotter():
                                 '', '', '',
                                 '$\phi$', '$\\theta$', '$\psi$', 
                                 '$T_{MH,1}$', '$T_{MH,2}$', '$T_{MH,3}$', '$T_{MH,4}$']
-            self.axis_labels = ['velocidade (ms)', 'velocidade (ms)', 'velocidade (ms)',
-                                'velocidade (ms)', 'velocidade (ms)', 'velocidade (ms)',
-                                'atitude (rad)', 'atitude (rad)', 'atitude (rad)', 
-                                'E', 'E', 'E', 'E']
+            self.axis_labels = ['Velocidade (ms)', 'Velocidade (ms)', 'Velocidade (ms)',
+                                'Velocidade (ms)', 'Velocidade (ms)', 'Velocidade (ms)',
+                                'Atitude (rad)', 'Atitude (rad)', 'Atitude (rad)', 
+                                'Empuxo (N)', 'Empuxo (N)', 'Empuxo (N)', 'Empuxo (N)']
             self.depth_plot = False
         else:
             self.plot_labels = ['x', 'y', 'z',
@@ -722,7 +722,7 @@ class plotter():
     def add(self, target):
         if self.velocity_plot:
             # state = np.concatenate((self.env.state[1:6:2].flatten(), target[1:6:2], self.env.ang.flatten(), self.env.clipped_action.flatten()))
-            state = np.concatenate((self.env.state[1:6:2].flatten(), target[1:6:2], self.env.ang.flatten(), (self.env.step_effort.flatten()+1)*T2WR*M*G/4 ))
+            state = np.concatenate((self.env.state[1:6:2].flatten(), target[1:6:2], self.env.ang.flatten(), (self.env.step_effort.flatten()+1)*T2WR*M*G/8 ))
         else:
             state = np.concatenate((self.env.state[0:5:2].flatten(), self.env.ang.flatten(), self.env.clipped_action.flatten()))
         self.states.append(state)
@@ -744,10 +744,13 @@ class plotter():
             self.axs[axis_place].legend()
             self.axs[axis_place].grid(True)
             self.axs[axis_place].set(ylabel=name)
+        self.axs[2].axhline(y=T2WR*M*G/4)
+        self.axs[2].axhline(y=0)
         plt.xlabel('tempo (s)')
         plt.savefig(nome+'.pgf', bbox_inches='tight')
+        plt.savefig(nome+'.png', bbox_inches='tight')
         # plt.title(nome[-40:])
-        plt.show()
+        # plt.show()
         if self.depth_plot:
             fig3d = plt.figure('3D map')
             ax = Axes3D(fig3d)
