@@ -367,8 +367,8 @@ class quad():
         accel_z = self.f_inertial[2, 0]/quad_m-G
         self.accel = np.array([[accel_x, accel_y, accel_z]]).T
 
-
-        self.accelerometer_read = self.mat_rot.T @ self.accel + self.f_in/M
+        # self.accelerometer_read = self.f_body/quad_m
+        self.accelerometer_read = self.mat_rot.T @ (self.accel.flatten() + np.array([0, 0, -G]))
 
         #BODY MOMENTUM
         W = np.array([[w_xx],
@@ -648,25 +648,24 @@ class sensor():
     
     def triad(self):
         gravity_vec = np.array([0, 0, -G])
-        magnet_vec = np.array([-4047, 12911, -9899])*0.01 
-        
+        magnet_vec = np.array([-4047, 12911, -9899])*0.01
         #Magnetic Vector of Santo André - Brasil in MiliGauss
         #https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml#igrfwmm
-        self.a_b_grav = self.a_b_grav + self.a_b_d*self.quad.t_step
-        self.m_b = self.m_b + self.m_b_d*self.quad.t_step
+
         
         #Gravity vector as read from body sensor
-        gravity_body = -self.accel()
-        print(gravity_body, self.quad.accelerometer_read)
+        induced_acceleration = self.quad.f_in.flatten() - (self.R @ np.array([[0, 0, -G]]).T).flatten()
+        gravity_body = self.accel() - induced_acceleration
 
         #Magnetic Field vector as read from body sensor
-        magnet_body = self.quad.mat_rot.T @ magnet_vec + np.random.normal(np.random.random(3)*self.m_b, self.m_std, 3)
+        magnet_body = self.quad.mat_rot.T @ (np.random.normal(magnet_vec, self.m_std))
       
         #Accel vector is more accurate
         #Body Coordinates
         gravity_body = gravity_body / np.linalg.norm(gravity_body)
 
         magnet_body = magnet_body / np.linalg.norm(magnet_body)
+
 
         t1b = gravity_body/np.linalg.norm(gravity_body)
 
@@ -677,9 +676,7 @@ class sensor():
         t3b = t3b/np.linalg.norm(t3b)
         
         tb = np.vstack((t1b, t2b, t3b)).T
-        print('+++++++++++++++++')
-        print(t1b, t2b, t3b)
-        print(tb)
+
         #Inertial Coordinates
         gravity_vec = gravity_vec/np.linalg.norm(gravity_vec)
         magnet_vec = magnet_vec / np.linalg.norm(magnet_vec)
@@ -693,8 +690,8 @@ class sensor():
         t3i = t3i/np.linalg.norm(t3i)
         
         ti = np.vstack((t1i, t2i, t3i)).T
-
         self.R = tb @ ti.T
+
         q = Rotation.from_matrix(self.R.T).as_quat()
         q = np.concatenate(([q[3]], q[0:3]))
         return q, self.R
@@ -703,13 +700,12 @@ class sensor():
     def accel_int(self):
 
         accel_body = self.accel()
-
         _, R = self.triad()
 
-        acceleration = R @ accel_body - np.array([0, 0, G])
+        acceleration = R.T @ accel_body + np.array([0, 0, G])
 
-        velocity = self.velocity_t0 + (acceleration+self.acceleration_t0)/2*self.quad.t_step
-        position = self.position_t0 + (velocity+self.velocity_t0)/2*self.quad.t_step
+        velocity = self.velocity_t0 + acceleration*self.quad.t_step
+        position = self.position_t0 + velocity*self.quad.t_step
         
         self.acceleration_t0 = acceleration
         self.velocity_t0 = velocity

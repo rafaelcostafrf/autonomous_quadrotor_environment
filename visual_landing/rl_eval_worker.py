@@ -71,9 +71,9 @@ print('Saved Control policy loaded')
 PLOT_LENGTH = 100
 CONV_SIZE = 256
 
-ERROR_POS = np.zeros([EVAL_TOTAL, TOTAL_STEPS, 3])    
-VEL = np.zeros([EVAL_TOTAL, TOTAL_STEPS,3])    
-CONTROL = np.zeros([EVAL_TOTAL, TOTAL_STEPS,3])    
+ERROR_POS = np.zeros([EVAL_TOTAL, TOTAL_STEPS+11, 3])
+VEL = np.zeros([EVAL_TOTAL, TOTAL_STEPS+11, 3])
+CONTROL = np.zeros([EVAL_TOTAL, TOTAL_STEPS+11, 3])
 
 class quad_worker():
     def __init__(self, render, cv_cam, child_number = None, child = False):
@@ -172,9 +172,8 @@ class quad_worker():
                             self.pos_accel[1], self.velocity_accel[1],
                             self.pos_accel[2], self.velocity_accel[2]])
         states_sens = np.array([np.concatenate((pos_vel, self.quaternion_gyro, quaternion_vel))   ])
-        print('----------------------------------------------')
-        print(states_sens)
-        print(self.quad_env.state.flatten())
+        # print('------------------')
+        # print(states_sens-self.quad_env.quat_state)
         return states_sens
             
     def image_zeros(self):
@@ -285,7 +284,7 @@ class quad_worker():
             if self.n_episodes >= EVAL_TOTAL:
                 return task.done
             
-            if time.time()-init_time > 0.01:
+            if time.time()-init_time > TIME_STEP:
                 return task.cont
             
     
