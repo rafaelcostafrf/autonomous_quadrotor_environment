@@ -6,7 +6,6 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib
 from matplotlib import pyplot as plt
 from scipy.spatial.transform import Rotation
-import inspect
 
 """""
 QUADROTOR ENVIRONMENT
@@ -81,8 +80,33 @@ P_C_D = 0
 TR = [0.005, 0.01, 0.1]
 TR_P = [3, 2, 1]
 
+## ROBUST CONTROL PARAMETERS
+class robust_control():
+    def __init__(self):
+        self.D_KF = 0.1
+        self.D_KM = 0.1
+        self.D_M = 0.3
+        self.D_IR = 0.1
+        self.D_J = np.ones(3) * 0.1
+        self.reset()
+        self.gust_std = [[5], [5], [2]]
+        self.gust_period = 500 # integration steps
+        self.i_gust = 0
+        self.gust = np.zeros([3, 1])
 
+    def reset(self):
+        self.episode_kf = np.random.random(4) * self.D_KF
+        self.episode_m = np.random.normal(0, self.D_M, 1)
+        self.episode_ir = np.random.random(4) * self.D_IR
+        self.episode_J = np.eye(3)*np.random.normal(np.zeros(3), self.D_J, [3])
 
+    def wind(self, i):
+        index = (i % self.gust_period) - 1
+        if index % self.gust_period == 0:
+            self.last_gust = self.gust
+            self.gust = np.random.normal(np.zeros([3, 1]), self.gust_std, [3, 1])
+            self.linear_wind_change = np.linspace(self.last_gust, self.gust, self.gust_period)
+        return self.linear_wind_change[index]
 
 class quad():
     def __init__(self, t_step, n, training = True, euler=0, direct_control=1, T=1, clipped = True):        
@@ -98,13 +122,12 @@ class quad():
         
         """
         self.clipped = clipped
-        
+
+
         if training:
             self.ppo_training = True
         else:
             self.ppo_training = False
-        ev_cd = 'Training' if self.ppo_training else 'Eval'
-        print('Environment Condition: '+ev_cd)
         
         
         self.mass = M
@@ -135,8 +158,7 @@ class quad():
 
                                                
         self.t_step = t_step
-        
-        self.inv_j = np.linalg.inv(J)
+
         
         #Neutral Action (used in reset and absolute action penalty) 
         if direct_control:
@@ -153,11 +175,16 @@ class quad():
         #Absolute sum of control efforts over the episode
         self.abs_sum = 0
         
-        self.d_xx = np.linspace(0,D,10)
-        self.d_yy = np.linspace(0,D,10)
-        self.d_zz = np.linspace(0,D,10)
+        self.d_xx = np.linspace(0, D, 10)
+        self.d_yy = np.linspace(0, D, 10)
+        self.d_zz = np.linspace(0, D, 10)
         
+        self.robust_parameters = robust_control()
+        self.robust_control = False
 
+        ev_cd = 'Training' if self.ppo_training else 'Eval'
+        ct_cd = ' with robust environment' if self.robust_control else ''
+        print('Environment Condition: ' + ev_cd + ct_cd)
         
     def seed(self, seed):
         """"
@@ -181,20 +208,13 @@ class quad():
         """""
         x = np.array([[K_F, K_F, K_F, K_F],
                       [-D*K_F, 0, D*K_F, 0],
-                      [0, D*K_F, 0, -D*K_F],                      
-                      [-K_M, +K_M, -K_M, +K_M]])      
-        
+                      [0, D*K_F, 0, -D*K_F],
+                      [-K_M, +K_M, -K_M, +K_M]])
+
         y = np.array([f, m[0,0], m[1,0], m[2,0]])
         
         u = np.linalg.solve(x, y)
-        # if np.logical_or(u > T2WR*M*G/4/K_F, u < 0).any():
-        #     M_MAX = T2WR*M*G*D*0.7
-        #     lower_bound = 0.8*np.array([M*G/2, -M_MAX,  -M_MAX, -M_MAX])
-        #     upper_bound = 0.8*np.array([T2WR*M*G*0.8, M_MAX,  M_MAX, M_MAX])
-        #     print(y)
-        #     y = np.clip(y, lower_bound, upper_bound)
-        #     print(y)
-        #     u = np.linalg.solve(x, y)
+
         if self.clipped:
             u = np.clip(u, 0, T2WR*M*G/4/K_F)
             w_1 = np.sqrt(u[0])
@@ -211,6 +231,9 @@ class quad():
             w_4 = np.sqrt(np.abs(u[3]))*modules[3]
             
         w = np.array([[w_1,w_2,w_3,w_4]]).T
+
+        if self.robust_control:
+            u -= u*self.robust_parameters.episode_kf
 
         FM_new = np.dot(x, u)
         
@@ -232,13 +255,15 @@ class quad():
             F_new - body thrust
             M_new - body angular momentum
         """""
-        f = (f_action+1)*T2WR*M*G/8
+        f = (f_action + 1) * T2WR * M * G / 8
 
-        
         w = np.array([[np.sqrt(f[0]/K_F)],
                       [np.sqrt(f[1]/K_F)],
                       [np.sqrt(f[2]/K_F)],
                       [np.sqrt(f[3]/K_F)]])
+
+        if self.robust_control:
+            f = f - self.robust_parameters.episode_kf * f
         
         F_new = np.sum(f)
         M_new = np.array([[(f[2]-f[0])*D],
@@ -264,7 +289,7 @@ class quad():
         else:            
             f_in = action[0]
             m_action = np.array([action[1::]]).T            
-            
+
         
         #BODY INERTIAL VELOCITY                
         vel_x = x[1]
@@ -288,7 +313,12 @@ class quad():
         
         # DRAG FORCES ESTIMATION (BASED ON BODY VELOCITIES)
         self.mat_rot = quat_rot_mat(q)
+
         v_inertial = np.array([[vel_x, vel_y, vel_z]]).T
+        if self.robust_control:
+            wind = self.robust_parameters.wind(self.i)
+            v_inertial += wind
+
         v_body = np.dot(self.mat_rot.T, v_inertial)
         f_drag = -0.5*RHO*C_D*np.multiply(A,np.multiply(abs(v_body),v_body))
         
@@ -307,26 +337,39 @@ class quad():
                            [m_y],
                            [m_z]])
         
-        #GYROSCOPIC EFFECT ESTIMATION (BASED ON ELETRIC MOTOR ANGULAR VELOCITY)                
-        omega_r = (-self.w[0]+self.w[1]-self.w[2]+self.w[3])[0]
-        
-        m_gyro = np.array([[-w_xx*I_R*omega_r],
-                           [+w_yy*I_R*omega_r],
+        #GYROSCOPIC EFFECT ESTIMATION (BASED ON ELETRIC MOTOR ANGULAR VELOCITY)
+        if self.robust_control:
+            ir = I_R*(np.ones(4)+self.robust_parameters.episode_ir)
+            omega_r = (-self.w[0]*ir[0]+self.w[1]*ir[1]-self.w[2]*ir[2]+self.w[3]*ir[3])[0]
+        else:
+            omega_r = (-self.w[0]+self.w[1]-self.w[2]+self.w[3])[0]*I_R
+
+        m_gyro = np.array([[-w_xx*omega_r],
+                           [+w_yy*omega_r],
                            [0]])
 
         #BODY FORCES
         self.f_in = np.array([[0, 0, f_in]]).T
         self.f_body = self.f_in+f_drag
-        
+
+
         #BODY FORCES ROTATION TO INERTIAL
         self.f_inertial = np.dot(self.mat_rot, self.f_body)
         
-        #INERTIAL ACCELERATIONS        
-        accel_x = self.f_inertial[0, 0]/M        
-        accel_y = self.f_inertial[1, 0]/M        
-        accel_z = self.f_inertial[2, 0]/M-G
+        #INERTIAL ACCELERATIONS
+        if self.robust_control:
+            quad_m = M * (1 + self.robust_parameters.episode_m)
+        else:
+            quad_m = M
+
+        accel_x = self.f_inertial[0, 0]/quad_m
+        accel_y = self.f_inertial[1, 0]/quad_m
+        accel_z = self.f_inertial[2, 0]/quad_m-G
         self.accel = np.array([[accel_x, accel_y, accel_z]]).T
-        
+
+
+        self.accelerometer_read = self.mat_rot.T @ self.accel + self.f_in/M
+
         #BODY MOMENTUM
         W = np.array([[w_xx],
                  [w_yy],
@@ -334,7 +377,11 @@ class quad():
 
         m_in = m_action + m_gyro + m_drag - np.cross(W.flatten(), np.dot(J, W).flatten()).reshape((3,1))
 
-        #INERTIAL ANGULAR ACCELERATION        
+        #INERTIAL ANGULAR ACCELERATION
+        if self.robust_control:
+            self.inv_j = np.linalg.inv(J + J*self.robust_parameters.episode_J)
+        else:
+            self.inv_j = np.linalg.inv(J)
         accel_ang = np.dot(self.inv_j, m_in).flatten()
         accel_w_xx = accel_ang[0]
         accel_w_yy = accel_ang[1]
@@ -375,7 +422,9 @@ class quad():
         state = []
         action = []
         self.action_hist = []
-        
+
+        self.robust_parameters.reset()
+
         self.solved = 0
         self.done = False
         self.i = 0   
@@ -536,9 +585,9 @@ class sensor():
     """
     
     def __init__(self, env,
-                 accel_std = 0.1, accel_bias_drift = 0.0005, 
-                 gyro_std = 0.035, gyro_bias_drift = 0.00015, 
-                 magnet_std = 15, magnet_bias_drift = 0.075, 
+                 accel_std = 0.1, accel_bias_drift = 0.0005,
+                 gyro_std = 0.035, gyro_bias_drift = 0.00015,
+                 magnet_std = 15, magnet_bias_drift = 0.075,
                  gps_std_p = 1.71, gps_std_v=0.5):
         
         self.std = [accel_std, gyro_std, magnet_std, gps_std_p, gps_std_v]
@@ -546,7 +595,8 @@ class sensor():
         self.quad = env
         self.error = True
         self.bias_reset()
-   
+        self.R = np.eye(3)
+
     def bias_reset(self):        
         self.a_std = self.std[0]*self.error
         self.a_b_d = (np.random.random()-0.5)*2*self.b_d[0]*self.error        
@@ -560,10 +610,13 @@ class sensor():
         
     def accel(self):
     
-        self.a_b_accel = self.a_b_accel + self.a_b_d*self.quad.t_step        
+        self.a_b_accel = self.a_b_accel + self.a_b_d*self.quad.t_step
+
         read_error = np.random.normal(self.a_b_accel, self.a_std, 3)
-        read_accel = np.dot(self.quad.mat_rot.T, self.quad.accel.flatten())
-        return read_error+read_accel
+
+        read_accel_body = self.quad.accelerometer_read.flatten()
+
+        return read_accel_body+read_error
     
     
     def gyro(self):
@@ -599,21 +652,24 @@ class sensor():
         
         #Magnetic Vector of Santo André - Brasil in MiliGauss
         #https://www.ngdc.noaa.gov/geomag/calculators/magcalc.shtml#igrfwmm
-        
-        
         self.a_b_grav = self.a_b_grav + self.a_b_d*self.quad.t_step
         self.m_b = self.m_b + self.m_b_d*self.quad.t_step
         
         #Gravity vector as read from body sensor
-        gravity_body = np.dot(self.quad.mat_rot.T, gravity_vec) + np.random.normal(np.random.random(3)*self.a_b_grav, self.a_std, 3)
-        #Magnetic Field vector as read from body sensor
-        magnet_body = np.dot(self.quad.mat_rot.T, magnet_vec) + np.random.normal(np.random.random(3)*self.m_b, self.m_std, 3)      
-      
+        gravity_body = -self.accel()
+        print(gravity_body, self.quad.accelerometer_read)
 
+        #Magnetic Field vector as read from body sensor
+        magnet_body = self.quad.mat_rot.T @ magnet_vec + np.random.normal(np.random.random(3)*self.m_b, self.m_std, 3)
+      
         #Accel vector is more accurate
         #Body Coordinates
+        gravity_body = gravity_body / np.linalg.norm(gravity_body)
+
+        magnet_body = magnet_body / np.linalg.norm(magnet_body)
+
         t1b = gravity_body/np.linalg.norm(gravity_body)
-        
+
         t2b = np.cross(gravity_body, magnet_body)
         t2b = t2b/np.linalg.norm(t2b)
         
@@ -621,35 +677,45 @@ class sensor():
         t3b = t3b/np.linalg.norm(t3b)
         
         tb = np.vstack((t1b, t2b, t3b)).T
-        
-        
+        print('+++++++++++++++++')
+        print(t1b, t2b, t3b)
+        print(tb)
         #Inertial Coordinates
+        gravity_vec = gravity_vec/np.linalg.norm(gravity_vec)
+        magnet_vec = magnet_vec / np.linalg.norm(magnet_vec)
+
         t1i = gravity_vec/np.linalg.norm(gravity_vec)
-        
-        t2i = np.cross(gravity_vec, magnet_vec)        
+
+        t2i = np.cross(gravity_vec, magnet_vec)
         t2i = t2i/np.linalg.norm(t2i)
         
         t3i = np.cross(t1i, t2i)
         t3i = t3i/np.linalg.norm(t3i)
         
         ti = np.vstack((t1i, t2i, t3i)).T
-        R = np.dot(tb, ti.T)
-        q = Rotation.from_matrix(R.T).as_quat()
+
+        self.R = tb @ ti.T
+        q = Rotation.from_matrix(self.R.T).as_quat()
         q = np.concatenate(([q[3]], q[0:3]))
-        return q, R.T
+        return q, self.R
         
         
     def accel_int(self):
-        accel_body = self.accel()      
-        _, R = self.triad()             
-        acceleration = np.dot(R, accel_body) 
-       
-        velocity = self.velocity_t0 + acceleration*self.quad.t_step
-        position = self.position_t0 + velocity*self.quad.t_step
+
+        accel_body = self.accel()
+
+        _, R = self.triad()
+
+        acceleration = R @ accel_body - np.array([0, 0, G])
+
+        velocity = self.velocity_t0 + (acceleration+self.acceleration_t0)/2*self.quad.t_step
+        position = self.position_t0 + (velocity+self.velocity_t0)/2*self.quad.t_step
         
         self.acceleration_t0 = acceleration
         self.velocity_t0 = velocity
         self.position_t0 = position
+
+
         return acceleration, velocity, position
     
     def gyro_int(self):

@@ -107,6 +107,7 @@ class MyApp(ShowBase):
         props = WindowProperties( )
         props.setTitle( wn )
         self.win.requestProperties( props )
+
     def run_setup(self):        
         a = 1        
                 

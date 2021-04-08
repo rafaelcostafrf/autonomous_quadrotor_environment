@@ -1,5 +1,3 @@
-clock-mode limited
-clock-frame-rate 20
 preload-textures 1
 
 win-size 600 600

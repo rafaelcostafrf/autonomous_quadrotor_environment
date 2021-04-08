@@ -220,7 +220,7 @@ class quad():
         else:            
             f_in = action[0]
             m_action = np.array([action[1::]]).T            
-            
+        print(f_in)
         
         #BODY INERTIAL VELOCITY                
         vel_x = x[1]

@@ -10,7 +10,7 @@ import os
 import psutil
 process = psutil.Process(os.getpid())
 # ENVIRONMENT AND CONTROLLER SETUP
-from environment.quadrotor_env_opt import quad, sensor
+from environment.quadrotor_env import quad, sensor
 from environment.quaternion_euler_utility import deriv_quat
 from environment.controller.model import ActorCritic_old, ActorCritic
 from environment.controller.dl_auxiliary import dl_in_gen
@@ -40,7 +40,7 @@ if save_pgf:
     })
 
 
-EVAL_TOTAL = 1
+EVAL_TOTAL = 100
 
 T = 5
 T_visual_time = 0
@@ -162,17 +162,20 @@ class quad_worker():
         return states, action
         
     def sensor_sp(self):
-            _, self.velocity_accel, self.pos_accel = self.sensor.accel_int()
-            self.quaternion_gyro = self.sensor.gyro_int()
-            self.ang_vel = self.sensor.gyro()
-            quaternion_vel = deriv_quat(self.ang_vel, self.quaternion_gyro)
-            self.pos_gps, self.vel_gps = self.sensor.gps()
-            self.quaternion_triad, _ = self.sensor.triad()
-            pos_vel = np.array([self.pos_accel[0], self.velocity_accel[0],
-                                self.pos_accel[1], self.velocity_accel[1],
-                                self.pos_accel[2], self.velocity_accel[2]])
-            states_sens = np.array([np.concatenate((pos_vel, self.quaternion_gyro, quaternion_vel))   ])
-            return states_sens
+        _, self.velocity_accel, self.pos_accel = self.sensor.accel_int()
+        self.quaternion_gyro = self.sensor.gyro_int()
+        self.ang_vel = self.sensor.gyro()
+        quaternion_vel = deriv_quat(self.ang_vel, self.quaternion_gyro)
+        self.pos_gps, self.vel_gps = self.sensor.gps()
+        self.quaternion_triad, _ = self.sensor.triad()
+        pos_vel = np.array([self.pos_accel[0], self.velocity_accel[0],
+                            self.pos_accel[1], self.velocity_accel[1],
+                            self.pos_accel[2], self.velocity_accel[2]])
+        states_sens = np.array([np.concatenate((pos_vel, self.quaternion_gyro, quaternion_vel))   ])
+        print('----------------------------------------------')
+        print(states_sens)
+        print(self.quad_env.state.flatten())
+        return states_sens
             
     def image_zeros(self):
         self.images = np.zeros([IMAGE_CHANNELS, IMAGE_LEN[0], IMAGE_LEN[0]])

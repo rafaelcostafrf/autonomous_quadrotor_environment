@@ -1,7 +1,6 @@
 clock-mode limited
 clock-frame-rate 20
 
-
 win-size 1440 900
 
 show-frame-rate-meter True
