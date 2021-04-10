@@ -654,7 +654,7 @@ class sensor():
 
         
         #Gravity vector as read from body sensor
-        induced_acceleration = self.quad.f_in.flatten() - (self.R @ np.array([[0, 0, -G]]).T).flatten()
+        induced_acceleration = self.quad.f_in.flatten()/M - (self.R @ np.array([[0, 0, -G]]).T).flatten()
         gravity_body = self.accel() - induced_acceleration
 
         #Magnetic Field vector as read from body sensor
